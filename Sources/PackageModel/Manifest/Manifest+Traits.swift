@@ -332,6 +332,14 @@ extension Manifest {
             }
         }
 
+        for package in self.products.compactMap(\.customProduct).compactMap(\.builderPluginPackage) {
+            if let dependency = self.packageDependency(referencedBy: package) {
+                known.insert(dependency.identity.description)
+            } else {
+                unknown.insert(package)
+            }
+        }
+
         return (knownPackage: known, unknownPackage: unknown)
     }
 

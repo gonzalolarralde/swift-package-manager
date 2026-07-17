@@ -30,6 +30,18 @@ public enum PluginAction {
         pluginGeneratedSources: [AbsolutePath],
         pluginGeneratedResources: [AbsolutePath]
     )
+    case createProductBuildPlan(
+        package: ResolvedPackage,
+        product: ResolvedProduct,
+        typeIdentifier: String,
+        aggregateStaticLibrary: AbsolutePath,
+        resourceFiles: [AbsolutePath],
+        resourceBundles: [AbsolutePath],
+        arguments: [String],
+        outputDirectory: AbsolutePath,
+        buildConfiguration: String,
+        targetTriple: String
+    )
     case createXcodeProjectBuildToolCommands(
         project: XcodeProjectRepresentation,
         target: XcodeProjectRepresentation.Target,
@@ -153,6 +165,51 @@ extension PluginModule {
                     targetId: targetId,
                     pluginGeneratedSources: generatedSources,
                     pluginGeneratedResources: generatedResources
+                )
+
+            case .createProductBuildPlan(
+                let package,
+                let product,
+                let typeIdentifier,
+                let aggregateStaticLibrary,
+                let resourceFiles,
+                let resourceBundles,
+                let arguments,
+                let productOutputDirectory,
+                let buildConfiguration,
+                let targetTriple
+            ):
+                let rootPackageId = try serializer.serialize(package: package)
+                guard let productId = try serializer.serialize(product: product) else {
+                    throw StringError("unexpectedly was unable to serialize product \(product)")
+                }
+                let aggregateStaticLibraryId = try serializer.serialize(path: aggregateStaticLibrary)
+                let resourceIds = try resourceFiles.map { try serializer.serialize(path: $0) }
+                let resourceBundleIds = try resourceBundles.map { try serializer.serialize(path: $0) }
+                let productOutputDirectoryId = try serializer.serialize(path: productOutputDirectory)
+                let wireInput = WireInput(
+                    paths: serializer.paths,
+                    targets: serializer.targets,
+                    products: serializer.products,
+                    packages: serializer.packages,
+                    xcodeTargets: serializer.xcodeTargets,
+                    xcodeProjects: serializer.xcodeProjects,
+                    pluginWorkDirId: pluginWorkDirId,
+                    toolSearchDirIds: toolSearchDirIds,
+                    accessibleTools: accessibleTools
+                )
+                actionMessage = .createProductBuildPlan(
+                    context: wireInput,
+                    rootPackageId: rootPackageId,
+                    productId: productId,
+                    typeIdentifier: typeIdentifier,
+                    aggregateStaticLibraryId: aggregateStaticLibraryId,
+                    resourceIds: resourceIds,
+                    resourceBundleIds: resourceBundleIds,
+                    arguments: arguments,
+                    outputDirectoryId: productOutputDirectoryId,
+                    buildConfiguration: buildConfiguration,
+                    targetTriple: targetTriple
                 )
 
             case .createXcodeProjectBuildToolCommands(let project, let target, let generatedSources, let generatedResources):
@@ -331,6 +388,15 @@ extension PluginModule {
                     }
                     return nil
 
+                case .defineProductBuildPlan(let outputFiles, let outputDirectories):
+                    try callbackQueue.sync {
+                        self.invocationDelegate.pluginDefinedProductBuildPlan(
+                            outputFiles: try outputFiles.map { try $0.filePath },
+                            outputDirectories: try outputDirectories.map { try $0.filePath }
+                        )
+                    }
+                    return nil
+
                 case .buildOperationRequest(let subset, let parameters):
                     do {
                         let result = try await self.invocationDelegate.pluginRequestedBuildOperation(
@@ -474,6 +540,137 @@ extension PluginModule {
             textOutput: String(decoding: delegate.outputData, as: UTF8.self),
             buildCommands: delegate.buildCommands,
             prebuildCommands: delegate.prebuildCommands
+        )
+    }
+
+    /// Invokes a product builder plugin and collects its declarative commands and final artifacts.
+    package func invokeProductBuilder(
+        package: ResolvedPackage,
+        product: ResolvedProduct,
+        typeIdentifier: String,
+        aggregateStaticLibrary: AbsolutePath,
+        resourceFiles: [AbsolutePath],
+        resourceBundles: [AbsolutePath],
+        arguments: [String],
+        productOutputDirectory: AbsolutePath,
+        buildConfiguration: String,
+        targetTriple: String,
+        buildEnvironment: BuildEnvironment,
+        workers: UInt32,
+        scriptRunner: PluginScriptRunner,
+        workingDirectory: AbsolutePath,
+        pluginOutputDirectory: AbsolutePath,
+        toolSearchDirectories: [AbsolutePath],
+        accessibleTools: [String: PluginTool],
+        writableDirectories: [AbsolutePath],
+        readOnlyDirectories: [AbsolutePath],
+        allowNetworkConnections: [SandboxNetworkPermission],
+        pkgConfigDirectories: [AbsolutePath],
+        sdkRootPath: AbsolutePath?,
+        fileSystem: FileSystem,
+        modulesGraph: ModulesGraph,
+        observabilityScope: ObservabilityScope
+    ) async throws -> ProductBuilderPluginInvocationResult {
+        guard productOutputDirectory.isDescendantOfOrEqual(to: pluginOutputDirectory) else {
+            throw PluginEvaluationError.invalidProductBuilderPlan(
+                "product output directory '\(productOutputDirectory)' is outside plugin output directory '\(pluginOutputDirectory)'"
+            )
+        }
+
+        let delegateQueue = DispatchQueue(label: "product-builder-plugin-invocation")
+        // All commands must wait for the predicted aggregate archive and the exact
+        // copied/processed resource outputs. Bundle roots are metadata only because
+        // they need not have producing LLBuild rules of their own.
+        let implicitInputs = Array(Set(
+            accessibleTools.values.map(\.path) + [aggregateStaticLibrary] + resourceFiles
+        )).sorted()
+        let builtToolPaths = accessibleTools.values
+            .filter { $0.source == .built }
+            .map(\.path)
+            .sorted()
+        let delegate = DefaultPluginInvocationDelegate(
+            fileSystem: fileSystem,
+            delegateQueue: delegateQueue,
+            toolPaths: implicitInputs,
+            builtToolPaths: builtToolPaths
+        )
+
+        let startTime = DispatchTime.now()
+        var success: Bool
+        do {
+            success = try await self.invoke(
+                action: .createProductBuildPlan(
+                    package: package,
+                    product: product,
+                    typeIdentifier: typeIdentifier,
+                    aggregateStaticLibrary: aggregateStaticLibrary,
+                    resourceFiles: resourceFiles,
+                    resourceBundles: resourceBundles,
+                    arguments: arguments,
+                    outputDirectory: productOutputDirectory,
+                    buildConfiguration: buildConfiguration,
+                    targetTriple: targetTriple
+                ),
+                buildEnvironment: buildEnvironment,
+                workers: workers,
+                scriptRunner: scriptRunner,
+                workingDirectory: workingDirectory,
+                outputDirectory: pluginOutputDirectory,
+                toolSearchDirectories: toolSearchDirectories,
+                accessibleTools: accessibleTools,
+                writableDirectories: writableDirectories,
+                readOnlyDirectories: readOnlyDirectories,
+                allowNetworkConnections: allowNetworkConnections,
+                pkgConfigDirectories: pkgConfigDirectories,
+                sdkRootPath: sdkRootPath,
+                fileSystem: fileSystem,
+                modulesGraph: modulesGraph,
+                observabilityScope: observabilityScope,
+                callbackQueue: delegateQueue,
+                delegate: delegate
+            )
+        } catch {
+            delegate.diagnostics.append(.error(
+                "Failed to invoke product builder plugin '\(self.name)': \(error)"
+            ))
+            success = false
+        }
+
+        if success, let validationError = delegate.validateProductBuildPlan(
+            outputDirectory: productOutputDirectory
+        ) {
+            delegate.diagnostics.append(.error(validationError))
+            success = false
+        }
+
+        // The callback only plans commands, so create its dedicated artifact
+        // directory after evaluating and validating the plan but before any of
+        // those commands can execute. Delaying this also keeps Foundation from
+        // resolving a serialized `/var` path to `/private/var` on macOS while
+        // it reconstructs URLs inside the plug-in process.
+        if success {
+            do {
+                try fileSystem.createDirectory(productOutputDirectory, recursive: true)
+            } catch {
+                throw PluginEvaluationError.couldNotCreateOuputDirectory(
+                    path: productOutputDirectory,
+                    underlyingError: error
+                )
+            }
+        }
+
+        return ProductBuilderPluginInvocationResult(
+            plugin: self,
+            pluginOutputDirectory: pluginOutputDirectory,
+            package: package,
+            product: product,
+            succeeded: success,
+            duration: startTime.distance(to: .now()),
+            diagnostics: delegate.diagnostics,
+            textOutput: String(decoding: delegate.outputData, as: UTF8.self),
+            buildCommands: delegate.buildCommands,
+            outputFiles: delegate.productOutputFiles,
+            outputDirectories: delegate.productOutputDirectories
         )
     }
 }
@@ -722,6 +919,42 @@ public struct BuildToolPluginInvocationResult {
     }
 }
 
+/// The result of evaluating a product builder plugin for a custom product.
+public struct ProductBuilderPluginInvocationResult {
+    /// The plugin that produced the plan.
+    public var plugin: PluginModule
+
+    /// The writable directory made available to the plugin and its commands.
+    public var pluginOutputDirectory: AbsolutePath
+
+    /// The package that declares the custom product.
+    public var package: ResolvedPackage
+
+    /// The custom product represented internally as a static library product.
+    public var product: ResolvedProduct
+
+    /// Whether plugin evaluation and host-side plan validation succeeded.
+    public var succeeded: Bool
+
+    /// Duration of plugin evaluation.
+    public var duration: DispatchTimeInterval
+
+    /// Diagnostics emitted during plugin evaluation and plan validation.
+    public var diagnostics: [Basics.Diagnostic]
+
+    /// Free-form standard output and error emitted by the plugin.
+    public var textOutput: String
+
+    /// Explicit-input, explicit-output commands to add to the build graph.
+    public var buildCommands: [BuildToolPluginInvocationResult.BuildCommand]
+
+    /// Final file artifacts declared by the product builder.
+    public var outputFiles: [AbsolutePath]
+
+    /// Final directory artifacts declared by the product builder.
+    public var outputDirectories: [AbsolutePath]
+}
+
 
 /// An error in plugin evaluation.
 public enum PluginEvaluationError: Swift.Error {
@@ -731,6 +964,7 @@ public enum PluginEvaluationError: Swift.Error {
     case runningPluginFailed(underlyingError: Error)
     case decodingPluginOutputFailed(json: Data, underlyingError: Error)
     case pluginUsesIncompatibleVersion(expected: Int, actual: Int)
+    case invalidProductBuilderPlan(String)
 }
 
 public protocol PluginInvocationDelegate {
@@ -758,6 +992,9 @@ public protocol PluginInvocationDelegate {
     /// Called when a plugin defines a prebuild command through the PackagePlugin APIs.
     func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) -> Bool
 
+    /// Called once when a product builder identifies its final artifacts.
+    func pluginDefinedProductBuildPlan(outputFiles: [AbsolutePath], outputDirectories: [AbsolutePath])
+
     /// Called when a plugin requests a build operation through the PackagePlugin APIs.
     func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters) async throws -> PluginInvocationBuildResult
 
@@ -777,6 +1014,9 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
     var diagnostics = [Basics.Diagnostic]()
     var buildCommands = [BuildToolPluginInvocationResult.BuildCommand]()
     var prebuildCommands = [BuildToolPluginInvocationResult.PrebuildCommand]()
+    var productOutputFiles = [AbsolutePath]()
+    var productOutputDirectories = [AbsolutePath]()
+    var productBuildPlanCount = 0
 
     package init(
         fileSystem: FileSystem,
@@ -862,6 +1102,59 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
         ))
         return true
     }
+
+    func pluginDefinedProductBuildPlan(
+        outputFiles: [AbsolutePath],
+        outputDirectories: [AbsolutePath]
+    ) {
+        dispatchPrecondition(condition: .onQueue(self.delegateQueue))
+        self.productBuildPlanCount += 1
+        self.productOutputFiles.append(contentsOf: outputFiles)
+        self.productOutputDirectories.append(contentsOf: outputDirectories)
+    }
+
+    func validateProductBuildPlan(outputDirectory: AbsolutePath) -> String? {
+        guard self.productBuildPlanCount == 1 else {
+            return "product builder plugin must declare its final outputs exactly once"
+        }
+        guard self.prebuildCommands.isEmpty else {
+            return "product builder plugins cannot define prebuild commands"
+        }
+
+        var producers: [AbsolutePath: Int] = [:]
+        for command in self.buildCommands {
+            guard !command.outputFiles.isEmpty else {
+                return "every product builder command must declare at least one output"
+            }
+            for output in command.outputFiles {
+                guard output.isDescendant(of: outputDirectory) else {
+                    return "product builder output '\(output)' is outside product output directory '\(outputDirectory)'"
+                }
+                producers[output, default: 0] += 1
+                guard producers[output] == 1 else {
+                    return "product builder output '\(output)' is produced by more than one command"
+                }
+            }
+        }
+
+        let finalOutputs = self.productOutputFiles + self.productOutputDirectories
+        guard !finalOutputs.isEmpty else {
+            return "product builder plugin must declare at least one final output"
+        }
+        var seen = Set<AbsolutePath>()
+        for output in finalOutputs {
+            guard output.isDescendant(of: outputDirectory) else {
+                return "product builder final output '\(output)' is outside product output directory '\(outputDirectory)'"
+            }
+            guard seen.insert(output).inserted else {
+                return "product builder final output '\(output)' is declared more than once"
+            }
+            guard producers[output] == 1 else {
+                return "product builder final output '\(output)' is not produced by a command"
+            }
+        }
+        return nil
+    }
 }
 
 public struct PluginInvocationSymbolGraphOptions {
@@ -912,7 +1205,7 @@ public struct PluginInvocationBuildResult {
         public var path: String
         public var kind: Kind
         public enum Kind: String {
-            case executable, dynamicLibrary, staticLibrary
+            case executable, dynamicLibrary, staticLibrary, file, directory
         }
         public init(path: String, kind: Kind) {
             self.path = path
@@ -981,6 +1274,8 @@ public extension PluginInvocationDelegate {
     }
     func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) -> Bool {
         return true
+    }
+    func pluginDefinedProductBuildPlan(outputFiles: [AbsolutePath], outputDirectories: [AbsolutePath]) {
     }
     func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters) async throws -> PluginInvocationBuildResult {
         throw StringError("unimplemented")
@@ -1068,6 +1363,10 @@ fileprivate extension HostToPluginMessage.BuildResult.BuiltArtifact.Kind {
             self = .dynamicLibrary
         case .staticLibrary:
             self = .staticLibrary
+        case .file:
+            self = .file
+        case .directory:
+            self = .directory
         }
     }
 }

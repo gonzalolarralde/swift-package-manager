@@ -505,27 +505,48 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let artifacts: [BuildResult.BuiltArtifact]?
         if buildOutputs.contains(.builtArtifacts) {
             let builtProducts = try buildPlan.buildProducts
-            artifacts = try builtProducts.compactMap {
-                switch $0.product.type {
+            artifacts = try builtProducts.flatMap { buildProduct -> [BuildResult.BuiltArtifact] in
+                if buildProduct.product.underlying.customProduct != nil {
+                    guard let buildProduct = buildProduct as? ProductBuildDescription,
+                          let result = buildProduct.productBuilderResult
+                    else {
+                        return []
+                    }
+                    return result.outputFiles.map {
+                        BuildResult.BuiltArtifact(
+                            name: buildProduct.product.name,
+                            artifact: .init(path: $0.pathString, kind: .file),
+                            umbrellaTestProductName: nil
+                        )
+                    } + result.outputDirectories.map {
+                        BuildResult.BuiltArtifact(
+                            name: buildProduct.product.name,
+                            artifact: .init(path: $0.pathString, kind: .directory),
+                            umbrellaTestProductName: nil
+                        )
+                    }
+                }
+
+                switch buildProduct.product.type {
                 case .library(let kind):
                     let artifactKind: PluginInvocationBuildResult.BuiltArtifact.Kind
                     switch kind {
                         case .dynamic: artifactKind = .dynamicLibrary
                         case .static, .automatic: artifactKind = .staticLibrary
                     }
-                    return try BuildResult.BuiltArtifact(
-                        name: $0.product.name,
-                        artifact: .init(path: $0.binaryPath.pathString, kind: artifactKind),
+                    return try [BuildResult.BuiltArtifact(
+                        name: buildProduct.product.name,
+                        artifact: .init(path: buildProduct.binaryPath.pathString, kind: artifactKind),
                         umbrellaTestProductName: nil
-                    )
+                    )]
                 case .executable:
-                    return try BuildResult.BuiltArtifact(
-                        name: $0.product.name,
-                        artifact: .init(path: $0.binaryPath.pathString, kind: .executable),
+                    return try [BuildResult.BuiltArtifact(
+                        name: buildProduct.product.name,
+                        artifact: .init(path: buildProduct.binaryPath.pathString, kind: .executable),
                         umbrellaTestProductName: nil
-                    )
+                    )]
                 default:
-                    return nil
+                    return []
                 }
             }
         } else {
@@ -768,9 +789,12 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // we need to build and invoke all of the build-tool plugins and capture their outputs in
         // `BuildPlan`.
         if let pluginConfiguration: PluginConfiguration, !self.config.shouldSkipBuilding(for: .target) {
-            let pluginsPerModule = graph.pluginsPerModule(
+            var pluginsPerModule = graph.pluginsPerModule(
                 satisfying: self.config.buildEnvironment(for: .host)
             )
+            for plugin in try graph.productBuilderPlugins() {
+                pluginsPerModule[plugin.id, default: []].append(plugin)
+            }
 
             pluginTools = try await buildPluginTools(
                 graph: graph,

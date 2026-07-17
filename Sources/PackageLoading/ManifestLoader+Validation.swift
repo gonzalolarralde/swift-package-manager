@@ -42,6 +42,7 @@ public struct ManifestValidator {
         diagnostics += self.validateProducts()
         diagnostics += self.validateDependencies()
         diagnostics += self.validateTraits()
+        diagnostics += self.validateExperimentalProductBuilders()
 
         // Checks reserved for tools version 5.2 features
         if self.manifest.toolsVersion >= .v5_2 {
@@ -50,6 +51,20 @@ public struct ManifestValidator {
         }
 
         return diagnostics
+    }
+
+    private func validateExperimentalProductBuilders() -> [Basics.Diagnostic] {
+        guard !self.manifest.toolsVersion.experimentalProductBuilders else {
+            return []
+        }
+        let usesCustomProducts = self.manifest.products.contains { $0.customProduct != nil }
+        let usesProductBuilderCapability = self.manifest.targets.contains {
+            $0.pluginCapability == .productBuilder
+        }
+        guard usesCustomProducts || usesProductBuilderCapability else {
+            return []
+        }
+        return [.experimentalProductBuildersNotEnabled()]
     }
 
     private func validateTargets() -> [Basics.Diagnostic] {
@@ -298,6 +313,13 @@ public protocol ManifestSourceControlValidator {
 }
 
 extension Basics.Diagnostic {
+    static func experimentalProductBuildersNotEnabled() -> Self {
+        .error(
+            "custom products and product-builder plug-ins require "
+                + "';(experimentalProductBuilders)' in the swift-tools-version header"
+        )
+    }
+
     static func duplicateTargetName(targetName: String) -> Self {
         .error("duplicate target named '\(targetName)'")
     }

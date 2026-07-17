@@ -270,6 +270,31 @@ fileprivate extension SourceCodeFragment {
         else {
             var params: [SourceCodeFragment] = []
             params.append(SourceCodeFragment(key: "name", string: product.name))
+            if let customProduct = product.customProduct {
+                params.append(SourceCodeFragment(
+                    key: "typeIdentifier",
+                    string: customProduct.typeIdentifier
+                ))
+                params.append(SourceCodeFragment(key: "targets", strings: product.targets))
+                params.append(SourceCodeFragment(
+                    key: "builderPlugin",
+                    string: customProduct.builderPlugin
+                ))
+                if let builderPluginPackage = customProduct.builderPluginPackage {
+                    params.append(SourceCodeFragment(
+                        key: "builderPluginPackage",
+                        string: builderPluginPackage
+                    ))
+                }
+                if !customProduct.arguments.isEmpty {
+                    params.append(SourceCodeFragment(
+                        key: "arguments",
+                        strings: customProduct.arguments
+                    ))
+                }
+                self.init(enum: "custom", subnodes: params, multiline: true)
+                return
+            }
             if !product.targets.isEmpty && !product.type.isLibrary {
                 params.append(SourceCodeFragment(key: "targets", strings: product.targets))
             }
@@ -596,6 +621,8 @@ fileprivate extension SourceCodeFragment {
         switch capability {
         case .buildTool:
             self.init(enum: "buildTool", subnodes: [])
+        case .productBuilder:
+            self.init(enum: "productBuilder", subnodes: [])
         case .command(let intent, let permissions):
             var params: [SourceCodeFragment] = []
             params.append(SourceCodeFragment(key: "intent", subnode: .init(from: intent)))

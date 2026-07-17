@@ -145,6 +145,14 @@ public struct PackageManager {
             /// For example, on macOS  a dynamic library may in fact be built as a framework.
             public enum Kind: String {
                 case executable, dynamicLibrary, staticLibrary
+
+                /// A custom product's final file artifact.
+                @available(_PackageDescription, introduced: 6.3)
+                case file
+
+                /// A custom product's final directory artifact.
+                @available(_PackageDescription, introduced: 6.3)
+                case directory
             }
         }
     }
@@ -446,6 +454,10 @@ extension PackageManager.BuildResult.BuiltArtifact.Kind {
             self = .dynamicLibrary
         case .staticLibrary:
             self = .staticLibrary
+        case .file:
+            self = .file
+        case .directory:
+            self = .directory
         }
     }
 }

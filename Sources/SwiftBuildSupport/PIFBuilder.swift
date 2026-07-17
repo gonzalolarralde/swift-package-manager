@@ -494,6 +494,12 @@ public final class PIFBuilder {
         buildParameters: BuildParameters
     ) async throws -> (PIF.TopLevelObject, [PackagePIFBuilder.ModuleOrProduct]) {
         return try await memoize(to: &self.cachedPIF) {
+            if let customProduct = self.graph.reachableProducts.first(where: { $0.underlying.customProduct != nil }) {
+                throw StringError(
+                    "custom product '\(customProduct.name)' uses a product-builder plug-in, which is currently "
+                        + "supported only by SwiftPM's native build system; pass '--build-system native'"
+                )
+            }
             let rootPackages = self.graph.rootPackages
             guard !rootPackages.isEmpty else {
                 throw PIFGenerationError.rootPackageNotFound

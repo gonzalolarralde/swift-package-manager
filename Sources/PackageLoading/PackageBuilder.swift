@@ -1570,7 +1570,7 @@ public final class PackageBuilder {
             let modules = try modulesFrom(moduleNames: product.targets, product: product.name)
             // Perform special validations if this product is exporting
             // a system library target.
-            if modules.contains(where: { $0 is SystemLibraryModule }) {
+            if product.customProduct == nil, modules.contains(where: { $0 is SystemLibraryModule }) {
                 if product.type != .library(.automatic) || modules.count != 1 {
                     self.observabilityScope.emit(.systemPackageProductValidation(product: product.name))
                     continue
@@ -1578,24 +1578,32 @@ public final class PackageBuilder {
             }
 
             // Do some validation based on the product type.
-            switch product.type {
-            case .library:
-                guard self.validateLibraryProduct(product, with: modules) else {
-                    continue
-                }
-            case .test, .macro:
-                break
-            case .executable, .snippet:
-                guard self.validateExecutableProduct(product, with: modules) else {
-                    continue
-                }
-            case .plugin:
-                guard self.validatePluginProduct(product, with: modules) else {
-                    continue
+            if product.customProduct == nil {
+                switch product.type {
+                case .library:
+                    guard self.validateLibraryProduct(product, with: modules) else {
+                        continue
+                    }
+                case .test, .macro:
+                    break
+                case .executable, .snippet:
+                    guard self.validateExecutableProduct(product, with: modules) else {
+                        continue
+                    }
+                case .plugin:
+                    guard self.validatePluginProduct(product, with: modules) else {
+                        continue
+                    }
                 }
             }
 
-            try append(Product(package: self.identity, name: product.name, type: product.type, modules: modules))
+            try append(Product(
+                package: self.identity,
+                name: product.name,
+                type: product.type,
+                modules: modules,
+                customProduct: product.customProduct
+            ))
         }
 
         // Add implicit executables - for root packages and for dependency plugins.
@@ -1604,6 +1612,9 @@ public final class PackageBuilder {
         // executable product so we don't create implicit executables
         // for them.
         let explicitProductsModules = Set(self.manifest.products.flatMap { product -> [String] in
+            if product.customProduct != nil {
+                return product.targets
+            }
             switch product.type {
             case .library, .plugin, .test, .macro:
                 return []

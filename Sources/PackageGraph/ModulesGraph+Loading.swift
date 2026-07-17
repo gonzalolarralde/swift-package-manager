@@ -1549,6 +1549,14 @@ extension Module {
     }
 
     func validateDependency(product: Product, productPackage: PackageIdentity) throws {
+        if product.customProduct != nil {
+            throw PackageGraphError.unsupportedCustomProductDependency(
+                moduleName: self.name,
+                productName: product.name,
+                productPackage: productPackage.description
+            )
+        }
+
         if self.type == .plugin && product.type.isLibrary {
             throw PackageGraphError.unsupportedPluginDependency(
                 moduleName: self.name,

@@ -1023,6 +1023,10 @@ extension PackagePIFProjectBuilder {
                 switch pluginTarget.capability {
                 case .buildTool:
                     return .buildToolPlugin
+                case .productBuilder:
+                    // PIF has no separate product-builder plugin classification yet.
+                    // It has the same host-side compilation shape as a build-tool plugin.
+                    return .buildToolPlugin
                 case .command:
                     return .commandPlugin
                 }

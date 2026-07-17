@@ -470,6 +470,19 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
         // Finally plan these targets.
         try self.plan()
+
+        // Product-builder plug-ins are evaluated only after ordinary product
+        // planning has computed the complete object list for the internally
+        // lowered static archive. Their commands are incorporated into the
+        // build graph later; the plug-in itself does not run after compilation.
+        if let pluginConfiguration {
+            try await self.invokeProductBuilderPlugins(
+                configuration: pluginConfiguration,
+                tools: pluginTools,
+                pkgConfigDirectories: pkgConfigDirectories,
+                observabilityScope: planningObservabilityScope
+            )
+        }
     }
 
     static func validateDeploymentVersionOfProductDependency(

@@ -75,6 +75,13 @@ enum PackageGraphError: Swift.Error {
         dependencyPackage: String?
     )
 
+    /// A custom product cannot be consumed as an ordinary target product dependency.
+    case unsupportedCustomProductDependency(
+        moduleName: String,
+        productName: String,
+        productPackage: String
+    )
+
     /// A product was found in multiple packages.
     case duplicateProduct(product: String, packages: [Package])
 
@@ -383,6 +390,8 @@ extension PackageGraphError: CustomStringConvertible {
               trailingMsg = " from package '\(dependencyPackage)'"
             }
             return "plugin '\(targetName)' cannot depend on '\(dependencyName)' of type '\(dependencyType)'\(trailingMsg); this dependency is unsupported"
+        case .unsupportedCustomProductDependency(let moduleName, let productName, let productPackage):
+            return "target '\(moduleName)' cannot depend on custom product '\(productName)' from package '\(productPackage)'; custom products are built by product-builder plugins and cannot be linked as target dependencies"
         }
     }
 }

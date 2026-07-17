@@ -67,6 +67,12 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     /// Paths to tools shipped in binary dependencies
     var availableTools: [String: AbsolutePath] = [:]
 
+    /// The declarative commands and final artifacts returned by this custom
+    /// product's builder plug-in, if this is a custom product in a normal build
+    /// plan. Plug-in-tool bootstrap plans intentionally leave this unset and
+    /// expose only the internally lowered static archive.
+    public internal(set) var productBuilderResult: ProductBuilderPluginInvocationResult?
+
     /// Path to the build products directory.
     public var productsPath: AbsolutePath {
         BuildOperation.buildProductsPath(for: self.buildParameters)

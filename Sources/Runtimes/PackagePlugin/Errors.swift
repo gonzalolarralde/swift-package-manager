@@ -54,6 +54,8 @@ public enum PluginDeserializationError: Error {
     case missingXcodeProjectPluginSupport
     /// The plugin doesn't conform to the BuildToolPlugin protocol.
     case missingBuildToolPluginProtocolConformance(protocolName: String)
+    /// The plugin doesn't conform to the ProductBuilderPlugin protocol.
+    case missingProductBuilderPluginProtocolConformance(protocolName: String)
     /// The plugin doesn't conform to the CommandPlugin protocol.
     case missingCommandPluginProtocolConformance(protocolName: String)
     /// An internal error of some kind; the message provides more details.
@@ -70,6 +72,8 @@ extension PluginDeserializationError: CustomStringConvertible {
             return "Plugin doesn't support Xcode projects (it doesn't use the XcodeProjectPlugin library)"
         case .missingBuildToolPluginProtocolConformance(let protocolName):
             return "Plugin is declared with the `buildTool` capability, but doesn't conform to the `\(protocolName)` protocol"
+        case .missingProductBuilderPluginProtocolConformance(let protocolName):
+            return "Plugin is declared with the `productBuilder` capability, but doesn't conform to the `\(protocolName)` protocol"
         case .missingCommandPluginProtocolConformance(let protocolName):
             return "Plugin is declared with the `command` capability, but doesn't conform to the `\(protocolName)` protocol"
         case .internalError(let message):

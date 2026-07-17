@@ -236,6 +236,89 @@ extension Plugin {
             // Exit with a zero exit code to indicate success.
             exit(0)
 
+        case .createProductBuildPlan(
+            let wireInput,
+            let rootPackageId,
+            let productId,
+            let typeIdentifier,
+            let aggregateStaticLibraryId,
+            let resourceIds,
+            let resourceBundleIds,
+            let arguments,
+            let outputDirectoryId,
+            let buildConfiguration,
+            let targetTriple
+        ):
+            let context: PluginContext
+            let input: ProductBuilderInput
+            do {
+                var deserializer = PluginContextDeserializer(wireInput)
+                let package = try deserializer.package(for: rootPackageId)
+                let pluginWorkDirectory = try deserializer.url(for: wireInput.pluginWorkDirId)
+                let toolSearchDirectories = try wireInput.toolSearchDirIds.map {
+                    try deserializer.url(for: $0)
+                }
+                let accessibleTools = try wireInput.accessibleTools.mapValues {
+                    (tool: HostToPluginMessage.InputContext.Tool) -> (URL, [String]?) in
+                    (try deserializer.url(for: tool.path), tool.triples)
+                }
+
+                context = try PluginContext(
+                    package: package,
+                    pluginWorkDirectory: Path(url: pluginWorkDirectory),
+                    pluginWorkDirectoryURL: pluginWorkDirectory,
+                    accessibleTools: accessibleTools,
+                    toolSearchDirectories: toolSearchDirectories.map { try Path(url: $0) },
+                    toolSearchDirectoryURLs: toolSearchDirectories
+                )
+                input = ProductBuilderInput(
+                    product: try deserializer.product(for: productId),
+                    typeIdentifier: typeIdentifier,
+                    aggregateStaticLibraryURL: try deserializer.url(for: aggregateStaticLibraryId),
+                    resourceURLs: try resourceIds.map { try deserializer.url(for: $0) },
+                    resourceBundleURLs: try resourceBundleIds.map { try deserializer.url(for: $0) },
+                    arguments: arguments,
+                    outputDirectoryURL: try deserializer.url(for: outputDirectoryId),
+                    buildConfiguration: buildConfiguration,
+                    targetTriple: targetTriple
+                )
+            } catch {
+                internalError("Couldn’t deserialize input from host: \(error).")
+            }
+
+            guard let plugin = self.init() as? ProductBuilderPlugin else {
+                throw PluginDeserializationError.missingProductBuilderPluginProtocolConformance(
+                    protocolName: "ProductBuilderPlugin"
+                )
+            }
+
+            let plan = try await plugin.createBuildPlan(context: context, input: input)
+            try plan.validate(outputDirectory: input.outputDirectoryURL)
+
+            for command in plan.commands {
+                switch command {
+                case .buildCommand(let displayName, let executable, let arguments, let environment, let inputFiles, let outputFiles):
+                    let configuration = PluginToHostMessage.CommandConfiguration(
+                        displayName: displayName,
+                        executable: executable,
+                        arguments: arguments,
+                        environment: environment
+                    )
+                    try pluginHostConnection.sendMessage(.defineBuildCommand(
+                        configuration: configuration,
+                        inputFiles: inputFiles,
+                        outputFiles: outputFiles
+                    ))
+                case .prebuildCommand:
+                    throw ProductBuilderPlanValidationError.prebuildCommandNotSupported
+                }
+            }
+            try pluginHostConnection.sendMessage(.defineProductBuildPlan(
+                outputFiles: plan.outputFiles,
+                outputDirectories: plan.outputDirectories
+            ))
+            exit(0)
+
         case .createXcodeProjectBuildToolCommands(let wireInput, let rootProjectId, let targetId, let generatedSources, let generatedResources):
             // Instantiate the plugin (for now without parameters, as described
             // above).

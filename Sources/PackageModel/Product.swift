@@ -24,6 +24,9 @@ public class Product: Identifiable {
     /// The type of product to create.
     public let type: ProductType
 
+    /// The custom product builder declaration, if this product is built by a package plug-in.
+    public let customProduct: ProductDescription.CustomProduct?
+
     /// The list of targets to combine to form the product.
     ///
     /// This is never empty, and is only the targets which are required to be in
@@ -45,7 +48,8 @@ public class Product: Identifiable {
         type: ProductType,
         modules: [Module],
         testEntryPointPath: AbsolutePath? = nil,
-        isImplicit: Bool = false
+        isImplicit: Bool = false,
+        customProduct: ProductDescription.CustomProduct? = nil
     ) throws {
         guard !modules.isEmpty else {
             throw InternalError("Targets cannot be empty")
@@ -63,6 +67,7 @@ public class Product: Identifiable {
         }
         self.name = name
         self.type = type
+        self.customProduct = customProduct
         self.identity = package.description.lowercased() + "_" + name
         self.modules = modules
         self.testEntryPointPath = testEntryPointPath

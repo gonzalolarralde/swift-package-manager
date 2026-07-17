@@ -15,7 +15,7 @@
 /// A package product defines an externally visible build artifact that's
 /// available to clients of a package. Swift Package Manager assembles the product from the
 /// build artifacts of one or more of the package's targets. A package product
-/// can be one of three types:
+/// can be one of four types:
 ///
 /// - term Library: Use a _library product_ to vend library targets. This makes
 /// a target's public APIs available to clients that integrate the Swift
@@ -25,6 +25,8 @@
 /// available to clients.
 /// - term Plugin: Use a _plugin product_ to vend plugin targets. This makes
 /// the plugin available to clients that integrate the Swift package.
+/// - term Custom: Use a _custom product_ to have a product-builder plug-in
+/// turn built target inputs into one or more declared artifacts.
 ///
 /// The following example shows a package manifest for a library called “Paper”
 /// that defines multiple products:
@@ -120,6 +122,41 @@ public class Product {
         }
     }
 
+    /// A product whose final artifacts are produced by a package plug-in.
+    @available(_PackageDescription, introduced: 6.3)
+    public final class Custom: Product, @unchecked Sendable {
+        /// A stable identifier understood by the product builder plug-in.
+        public let typeIdentifier: String
+
+        /// The names of the targets used as inputs to the product builder.
+        public let targets: [String]
+
+        /// The name of the plug-in that builds the product.
+        public let builderPlugin: String
+
+        /// The package that provides the builder plug-in, or `nil` when it is in this package.
+        public let builderPluginPackage: String?
+
+        /// Opaque arguments passed to the product builder plug-in.
+        public let arguments: [String]
+
+        init(
+            name: String,
+            typeIdentifier: String,
+            targets: [String],
+            builderPlugin: String,
+            builderPluginPackage: String?,
+            arguments: [String]
+        ) {
+            self.typeIdentifier = typeIdentifier
+            self.targets = targets
+            self.builderPlugin = builderPlugin
+            self.builderPluginPackage = builderPluginPackage
+            self.arguments = arguments
+            super.init(name: name)
+        }
+    }
+
     /// Creates a library product to allow clients that declare a dependency on
     /// this package to use the package's functionality.
     ///
@@ -186,6 +223,40 @@ public class Product {
         targets: [String]
     ) -> Product {
         return Plugin(name: name, targets: targets)
+    }
+
+    /// Defines a product whose final artifacts are produced by a package plug-in.
+    ///
+    /// This generic entry point allows another manifest library to provide a typed
+    /// product API while delegating the actual build to a plug-in.
+    /// Enable this prototype with `;(experimentalProductBuilders)` in the
+    /// manifest's swift-tools-version header.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the product.
+    ///   - typeIdentifier: A stable identifier shared by the typed manifest API and builder plug-in.
+    ///   - targets: The targets whose build artifacts are inputs to the builder plug-in.
+    ///   - builderPlugin: The name of the plug-in target or product that builds this product.
+    ///   - builderPluginPackage: The package containing the builder plug-in, or `nil` for this package.
+    ///   - arguments: Opaque arguments to pass to the builder plug-in.
+    /// - Returns: A `Product` instance.
+    @available(_PackageDescription, introduced: 6.3)
+    public static func custom(
+        name: String,
+        typeIdentifier: String,
+        targets: [String],
+        builderPlugin: String,
+        builderPluginPackage: String? = nil,
+        arguments: [String] = []
+    ) -> Product {
+        return Custom(
+            name: name,
+            typeIdentifier: typeIdentifier,
+            targets: targets,
+            builderPlugin: builderPlugin,
+            builderPluginPackage: builderPluginPackage,
+            arguments: arguments
+        )
     }
 }
 

@@ -14,10 +14,13 @@ import PackageModel
 
 import struct Basics.AbsolutePath
 import struct Basics.InternalError
+import enum Basics.Sandbox
 import struct LLBuildManifest.Node
 import struct SPMBuildCore.BuildParameters
+import struct SPMBuildCore.ProductBuilderPluginInvocationResult
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedProduct
+import struct TSCBasic.ByteString
 
 extension LLBuildManifestBuilder {
     func createProductCommand(_ buildProduct: ProductBuildDescription) throws {
@@ -43,17 +46,29 @@ extension LLBuildManifestBuilder {
         let targetName = try buildProduct.llbuildTargetName
         let output: Node = .virtual(targetName)
 
-        let finalProductNode: Node
+        let finalProductNodes: [Node]
         switch buildProduct.product.type {
         case .library(.static):
-            finalProductNode = try .file(buildProduct.binaryPath)
+            let archiveNode = try Node.file(buildProduct.binaryPath)
             try self.manifest.addShellCmd(
                 name: cmdName,
                 description: "Archiving \(buildProduct.binaryPath.prettyPath())",
                 inputs: (buildProduct.objects + [buildProduct.linkFileListPath]).map(Node.file),
-                outputs: [finalProductNode],
+                outputs: [archiveNode],
                 arguments: try buildProduct.archiveArguments()
             )
+
+            if let productBuilderResult = buildProduct.productBuilderResult {
+                finalProductNodes = try self.addProductBuilderCommands(
+                    productBuilderResult,
+                    for: buildProduct,
+                    archiveNode: archiveNode
+                )
+            } else {
+                // Product-builder tool bootstrap plans intentionally stop at
+                // the internal archive and never build this product target.
+                finalProductNodes = [archiveNode]
+            }
 
         default:
             let inputs = try buildProduct.objects
@@ -100,16 +115,16 @@ extension LLBuildManifestBuilder {
                     outputs: [codeSigningOutput],
                     arguments: buildProduct.codeSigningArguments(plistPath: plistPath, binaryPath: linkedBinaryPath)
                 )
-                finalProductNode = codeSigningOutput
+                finalProductNodes = [codeSigningOutput]
             } else {
-                finalProductNode = linkedBinaryNode
+                finalProductNodes = [linkedBinaryNode]
             }
         }
 
         self.manifest.addNode(output, toTarget: targetName)
         self.manifest.addPhonyCmd(
             name: output.name,
-            inputs: [finalProductNode],
+            inputs: finalProductNodes,
             outputs: [output]
         )
 
@@ -124,6 +139,97 @@ extension LLBuildManifestBuilder {
             objects: Array(buildProduct.objects),
             linkFileListPath: buildProduct.linkFileListPath
         )
+    }
+
+    /// Adds the commands declared by a custom product's builder plug-in. The
+    /// internally generated archive and every resource bundle are mandatory
+    /// inputs, while dependencies between builder commands remain driven by
+    /// their explicitly declared input/output paths.
+    private func addProductBuilderCommands(
+        _ result: ProductBuilderPluginInvocationResult,
+        for buildProduct: ProductBuildDescription,
+        archiveNode: Node
+    ) throws -> [Node] {
+        let finalDirectoryPaths = Set(result.outputDirectories)
+        var copiedDirectoryPaths = Set<AbsolutePath>()
+        var resourceBundleNodes = [AbsolutePath: Node]()
+
+        for module in buildProduct.staticTargets {
+            guard let description = self.plan.description(for: module, context: buildProduct.destination),
+                  let bundlePath = description.bundlePath
+            else {
+                continue
+            }
+            resourceBundleNodes[bundlePath] = .virtual(description.llbuildResourcesCmdName)
+            for resource in description.resources where self.fileSystem.isDirectory(resource.path) {
+                switch resource.rule {
+                case .copy, .process:
+                    copiedDirectoryPaths.insert(try bundlePath.appending(resource.destination))
+                case .embedInCode:
+                    break
+                }
+            }
+        }
+
+        func inputNode(for path: AbsolutePath) -> Node {
+            if let bundleNode = resourceBundleNodes[path] {
+                return bundleNode
+            }
+            if copiedDirectoryPaths.contains(path) || finalDirectoryPaths.contains(path) {
+                return .directory(path)
+            }
+            return .file(path)
+        }
+
+        func outputNode(for path: AbsolutePath) -> Node {
+            finalDirectoryPaths.contains(path) ? .directory(path) : .file(path)
+        }
+
+        func uniqued(_ nodes: [Node]) -> [Node] {
+            var seen = Set<Node>()
+            return nodes.filter { seen.insert($0).inserted }
+        }
+
+        let mandatoryResourceNodes = resourceBundleNodes.values.sorted { $0.name < $1.name }
+        for (index, command) in result.buildCommands.enumerated() {
+            let executable = command.configuration.executable
+            let displayName = command.configuration.displayName ?? executable.basename
+            var commandLine = [executable.pathString] + command.configuration.arguments
+            if !self.disableSandboxForPluginCommands {
+                commandLine = try Sandbox.apply(
+                    command: commandLine,
+                    fileSystem: self.fileSystem,
+                    strictness: .writableTemporaryDirectory,
+                    writableDirectories: [result.pluginOutputDirectory]
+                )
+            }
+
+            let inputs = uniqued(
+                [archiveNode, .file(executable)]
+                    + mandatoryResourceNodes
+                    + command.inputFiles.map(inputNode(for:))
+            )
+            let outputs = command.outputFiles.map(outputNode(for:))
+            let signature = ([
+                buildProduct.package.identity.description,
+                buildProduct.product.name,
+                String(index),
+                executable.pathString,
+            ] + command.configuration.arguments + command.outputFiles.map(\.pathString))
+                .joined(separator: "|")
+
+            self.manifest.addShellCmd(
+                name: "ProductBuilder-" + ByteString(encodingAsUTF8: signature).sha256Checksum,
+                description: displayName,
+                inputs: inputs,
+                outputs: outputs,
+                arguments: commandLine,
+                environment: command.configuration.environment,
+                workingDirectory: command.configuration.workingDirectory?.pathString
+            )
+        }
+
+        return result.outputFiles.map(Node.file) + result.outputDirectories.map(Node.directory)
     }
 }
 

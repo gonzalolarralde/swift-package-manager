@@ -246,6 +246,7 @@ extension Serialization.PluginCapability {
     init(_ capability: PackageDescription.Target.PluginCapability) {
         switch capability {
         case .buildTool: self = .buildTool
+        case .productBuilder: self = .productBuilder
         case .command(let intent, let permissions): self = .command(
                 intent: .init(intent),
                 permissions: permissions.map { .init($0) }
@@ -348,7 +349,9 @@ extension Serialization.Product.ProductType.LibraryType {
 
 extension Serialization.Product {
     init(_ product: PackageDescription.Product) {
-        if let executable = product as? PackageDescription.Product.Executable {
+        if let custom = product as? PackageDescription.Product.Custom {
+            self.init(custom)
+        } else if let executable = product as? PackageDescription.Product.Executable {
             self.init(executable)
         } else if let library = product as? PackageDescription.Product.Library {
             self.init(library)
@@ -363,6 +366,7 @@ extension Serialization.Product {
         self.name = executable.name
         self.targets = executable.targets
         self.productType = .executable
+        self.customProduct = nil
         #if ENABLE_APPLE_PRODUCT_TYPES
         self.settings = executable.settings.map { .init($0) }
         #endif
@@ -373,6 +377,7 @@ extension Serialization.Product {
         self.targets = library.targets
         let libraryType = library.type.map { ProductType.LibraryType($0) } ?? .automatic
         self.productType = .library(type: libraryType)
+        self.customProduct = nil
         #if ENABLE_APPLE_PRODUCT_TYPES
         self.settings = []
         #endif
@@ -382,6 +387,24 @@ extension Serialization.Product {
         self.name = plugin.name
         self.targets = plugin.targets
         self.productType = .plugin
+        self.customProduct = nil
+        #if ENABLE_APPLE_PRODUCT_TYPES
+        self.settings = []
+        #endif
+    }
+
+    init(_ custom: PackageDescription.Product.Custom) {
+        self.name = custom.name
+        self.targets = custom.targets
+        // Custom products use a static library as their internal placeholder type.
+        // Their final artifacts are created by the builder plug-in.
+        self.productType = .library(type: .static)
+        self.customProduct = .init(
+            typeIdentifier: custom.typeIdentifier,
+            builderPlugin: custom.builderPlugin,
+            builderPluginPackage: custom.builderPluginPackage,
+            arguments: custom.arguments
+        )
         #if ENABLE_APPLE_PRODUCT_TYPES
         self.settings = []
         #endif

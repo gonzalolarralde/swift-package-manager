@@ -500,10 +500,29 @@ extension ProductDescription {
         case .library(let type):
             productType = .library(.init(type))
         }
+        let customProduct = product.customProduct.map {
+            ProductDescription.CustomProduct(
+                typeIdentifier: $0.typeIdentifier,
+                builderPlugin: $0.builderPlugin,
+                builderPluginPackage: $0.builderPluginPackage,
+                arguments: $0.arguments
+            )
+        }
         #if ENABLE_APPLE_PRODUCT_TYPES
-        try self.init(name: product.name, type: productType, targets: product.targets, settings: product.settings.map { .init($0) })
+        try self.init(
+            name: product.name,
+            type: productType,
+            targets: product.targets,
+            settings: product.settings.map { .init($0) },
+            customProduct: customProduct
+        )
         #else
-        try self.init(name: product.name, type: productType, targets: product.targets)
+        try self.init(
+            name: product.name,
+            type: productType,
+            targets: product.targets,
+            customProduct: customProduct
+        )
         #endif
     }
 }
@@ -573,6 +592,8 @@ extension TargetDescription.PluginCapability {
         switch capability {
         case .buildTool:
             self = .buildTool
+        case .productBuilder:
+            self = .productBuilder
         case .command(let intent, let permissions):
             self = .command(intent: .init(intent), permissions: permissions.map { .init($0) })
         }

@@ -184,6 +184,7 @@ enum Serialization {
 
     enum PluginCapability: Codable {
         case buildTool
+        case productBuilder
         case command(intent: PluginCommandIntent, permissions: [PluginPermission])
     }
 
@@ -248,6 +249,13 @@ enum Serialization {
     // MARK: - product serialization
 
     struct Product: Codable {
+        struct CustomProduct: Codable {
+            let typeIdentifier: String
+            let builderPlugin: String
+            let builderPluginPackage: String?
+            let arguments: [String]
+        }
+
         enum ProductType: Codable {
             enum LibraryType: Codable {
                 case automatic
@@ -263,6 +271,7 @@ enum Serialization {
         let name: String
         let targets: [String]
         let productType: ProductType
+        let customProduct: CustomProduct?
 
         #if ENABLE_APPLE_PRODUCT_TYPES
         let settings: [ProductSetting]

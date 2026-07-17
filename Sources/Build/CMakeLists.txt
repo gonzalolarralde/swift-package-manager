@@ -22,6 +22,7 @@ add_library(Build
   BuildPlan/BuildPlan.swift
   BuildPlan/BuildPlan+Clang.swift
   BuildPlan/BuildPlan+Product.swift
+  BuildPlan/BuildPlan+ProductBuilder.swift
   BuildPlan/BuildPlan+Swift.swift
   BuildPlan/BuildPlan+Test.swift
   ClangSupport.swift

@@ -45,6 +45,23 @@ public protocol BuildToolPlugin: Plugin {
     ) async throws -> [Command]
 }
 
+/// The plugin protocol for plug-ins that build the final artifacts of a custom product.
+///
+/// The package manifest must opt in with `;(experimentalProductBuilders)` in
+/// its swift-tools-version header.
+@available(_PackageDescription, introduced: 6.3)
+public protocol ProductBuilderPlugin: Plugin {
+    /// Creates a declarative build plan for a custom product.
+    ///
+    /// The plug-in is evaluated while SwiftPM plans the build. It must not read
+    /// the aggregate archive or built resources at this point. The commands it
+    /// returns execute later, after their input artifacts are available.
+    func createBuildPlan(
+        context: PluginContext,
+        input: ProductBuilderInput
+    ) async throws -> ProductBuilderPlan
+}
+
 /// The plugin protocol that defines functionality for all plugins that have a command capability.
 public protocol CommandPlugin: Plugin {
     /// Invoked by the package manager to perform the custom actions of the command.
