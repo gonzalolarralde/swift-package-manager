@@ -48,6 +48,15 @@ fileprivate struct ToolsVersionSpecificationGenerationTests {
         #expect(allZeroVersion.specification(roundedTo: .automatic) == "// swift-tools-version:0.0")
         #expect(allZeroVersion.specification(roundedTo: .minor) == "// swift-tools-version:0.0")
         #expect(allZeroVersion.specification(roundedTo: .patch) == "// swift-tools-version:0.0.0")
+
+        let experimentalVersion = try #require(ToolsVersion(
+            string: "6.4.0",
+            experimentalFeatures: [.experimentalProductBuilders, .experimentalMultiLang]
+        ))
+        #expect(
+            experimentalVersion.specification()
+                == "// swift-tools-version: 6.4;(experimentalMultiLang,experimentalProductBuilders)"
+        )
     }
 
 }

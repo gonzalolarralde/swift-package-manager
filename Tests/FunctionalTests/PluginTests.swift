@@ -38,6 +38,64 @@ struct PluginTests {
             .Feature.Command.Build,
             .Feature.CommandLineArguments.Product,
             .Feature.CommandLineArguments.BuildSystem,
+        )
+    )
+    func customProductBuilderProducesIncrementalArtifacts() async throws {
+        try await fixture(name: "Miscellaneous/Plugins/CustomProductBuilder") { fixturePath in
+            let (firstBuildOutput, _) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["--product", "Firmware"],
+                buildSystem: .native
+            )
+            #expect(firstBuildOutput.contains("Archiving libFirmware.a"), "stdout:\n\(firstBuildOutput)")
+            #expect(
+                firstBuildOutput.contains("Finalizing Firmware as ELF, BIN, and UF2"),
+                "stdout:\n\(firstBuildOutput)"
+            )
+
+            let outputs = try walk(fixturePath.appending(".build")).filter {
+                ["Firmware.elf", "Firmware.bin", "Firmware.uf2"].contains($0.basename)
+            }
+            #expect(Set(outputs.map(\.basename)) == ["Firmware.elf", "Firmware.bin", "Firmware.uf2"])
+            let uf2 = try #require(outputs.first(where: { $0.basename == "Firmware.uf2" }))
+            let uf2Contents: String = try localFileSystem.readFileContents(uf2)
+            #expect(uf2Contents.contains("type=dev.swiftpm.example.pico-uf2"))
+            #expect(uf2Contents.contains("resources=copied-board-resource"))
+
+            let (incrementalOutput, _) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["--product", "Firmware"],
+                buildSystem: .native
+            )
+            #expect(!incrementalOutput.contains("Finalizing Firmware as ELF, BIN, and UF2"))
+
+            try localFileSystem.writeFileContents(
+                fixturePath.appending(components: "Sources", "FirmwareCore", "board.txt"),
+                string: "updated-board-resource\n"
+            )
+            let (resourceRebuildOutput, _) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["--product", "Firmware"],
+                buildSystem: .native
+            )
+            #expect(
+                resourceRebuildOutput.contains("Finalizing Firmware as ELF, BIN, and UF2"),
+                "stdout:\n\(resourceRebuildOutput)"
+            )
+            let rebuiltUF2Contents: String = try localFileSystem.readFileContents(uf2)
+            #expect(rebuiltUF2Contents.contains("resources=updated-board-resource"))
+        }
+    }
+
+    @Test(
+        .requiresSwiftConcurrencySupport,
+        .tags(
+            .Feature.Command.Build,
+            .Feature.CommandLineArguments.Product,
+            .Feature.CommandLineArguments.BuildSystem,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )

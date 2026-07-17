@@ -19,7 +19,7 @@ import LLBuildManifest
 import PackageGraph
 
 import PackageModel
-import struct SPMBuildCore.BuildParameters
+@testable import SPMBuildCore
 
 import _InternalBuildTestSupport
 @_spi(SwiftPMInternal)
@@ -175,6 +175,134 @@ struct LLBuildManifestBuilderTests {
         ]
 
         #expect(llbuild.manifest.commands.map(\.key).sorted() == basicDebugCommandNames.sorted())
+    }
+
+    @Test
+    func customProductBuilderCommandsFollowAggregateArchive() async throws {
+        let packagePath: AbsolutePath = "/pkg"
+        let fileSystem = InMemoryFileSystem(emptyFiles: [
+            "/pkg/Sources/FirmwareCore/Firmware.swift",
+            "/pkg/Plugins/FirmwareBuilder/Plugin.swift",
+        ])
+        let customProduct = ProductDescription.CustomProduct(
+            typeIdentifier: "dev.example.pico-u2f",
+            builderPlugin: "FirmwareBuilder",
+            arguments: ["--family", "rp2350"]
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fileSystem,
+            manifests: [
+                .createRootManifest(
+                    displayName: "FirmwarePackage",
+                    path: packagePath,
+                    toolsVersion: .v6_3,
+                    products: [
+                        try ProductDescription(
+                            name: "Firmware",
+                            type: .library(.static),
+                            targets: ["FirmwareCore"],
+                            customProduct: customProduct
+                        ),
+                    ],
+                    targets: [
+                        try TargetDescription(name: "FirmwareCore"),
+                        try TargetDescription(
+                            name: "FirmwareBuilder",
+                            type: .plugin,
+                            pluginCapability: .productBuilder
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        let plan = try await mockBuildPlan(
+            graph: graph,
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope
+        )
+        let buildProduct = try BuildPlanResult(plan: plan).buildProduct(for: "Firmware")
+        let resolvedProduct = try #require(graph.product(for: "Firmware"))
+        let package = try #require(graph.package(for: resolvedProduct))
+        let plugin = try #require(
+            graph.module(for: "FirmwareBuilder")?.underlying as? PluginModule
+        )
+
+        let outputDirectory = buildProduct.tempsPath.appending(components: "product-builder", "outputs")
+        let elf = outputDirectory.appending("Firmware.elf")
+        let uf2 = outputDirectory.appending("Firmware.uf2")
+        let symbols = outputDirectory.appending("Firmware.symbols")
+        let finalizeCommand = BuildToolPluginInvocationResult.BuildCommand(
+            configuration: .init(
+                displayName: "Finalize Firmware",
+                executable: "/tools/finalize",
+                arguments: [elf.pathString, symbols.pathString],
+                environment: [:],
+                workingDirectory: packagePath
+            ),
+            inputFiles: [],
+            outputFiles: [elf, symbols]
+        )
+        let packageCommand = BuildToolPluginInvocationResult.BuildCommand(
+            configuration: .init(
+                displayName: "Package Firmware",
+                executable: "/tools/package",
+                arguments: [symbols.pathString, uf2.pathString],
+                environment: [:],
+                workingDirectory: packagePath
+            ),
+            inputFiles: [symbols],
+            outputFiles: [uf2]
+        )
+        buildProduct.productBuilderResult = ProductBuilderPluginInvocationResult(
+            plugin: plugin,
+            pluginOutputDirectory: outputDirectory.parentDirectory,
+            package: package,
+            product: resolvedProduct,
+            succeeded: true,
+            duration: .seconds(0),
+            diagnostics: [],
+            textOutput: "",
+            buildCommands: [finalizeCommand, packageCommand],
+            outputFiles: [elf, uf2],
+            outputDirectories: [symbols]
+        )
+
+        let builder = LLBuildManifestBuilder(
+            plan,
+            disableSandboxForPluginCommands: true,
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope
+        )
+        try builder.createProductCommand(buildProduct)
+
+        let archivePath = try buildProduct.binaryPath
+        let archiveCommand = try #require(
+            builder.manifest.commands[buildProduct.commandName]?.tool as? ShellTool
+        )
+        #expect(archiveCommand.outputs == [.file(archivePath)])
+
+        let builderCommand = try #require(
+            builder.manifest.commands.values.compactMap { $0.tool as? ShellTool }
+                .first(where: { $0.description == "Finalize Firmware" })
+        )
+        #expect(builderCommand.inputs.contains(.file(archivePath)))
+        #expect(builderCommand.outputs == [.file(elf), .directory(symbols)])
+
+        let packageCommandInManifest = try #require(
+            builder.manifest.commands.values.compactMap { $0.tool as? ShellTool }
+                .first(where: { $0.description == "Package Firmware" })
+        )
+        #expect(packageCommandInManifest.inputs.contains(.directory(symbols)))
+        #expect(packageCommandInManifest.outputs == [.file(uf2)])
+
+        let productTargetName = try buildProduct.llbuildTargetName
+        let productPhony = try #require(
+            builder.manifest.commands[Node.virtual(productTargetName).name]?.tool as? PhonyTool
+        )
+        #expect(productPhony.inputs == [.file(elf), .file(uf2), .directory(symbols)])
+        #expect(!productPhony.inputs.contains(.file(archivePath)))
     }
 
     /// Verifies that two modules with the same name but different triples don't share same build manifest keys.

@@ -65,6 +65,58 @@ class ManifestTests: XCTestCase {
         }
     }
 
+    func testCustomProductBuilderTargetsAreRequired() throws {
+        let customProductUsingBuilderProduct = try ProductDescription(
+            name: "FirmwareViaProduct",
+            type: .library(.static),
+            targets: ["FirmwareCore"],
+            customProduct: .init(
+                typeIdentifier: "dev.example.pico-u2f",
+                builderPlugin: "BuilderProduct"
+            )
+        )
+        let customProductUsingBuilderTarget = try ProductDescription(
+            name: "FirmwareViaTarget",
+            type: .library(.static),
+            targets: ["FirmwareCore"],
+            customProduct: .init(
+                typeIdentifier: "dev.example.pico-u2f",
+                builderPlugin: "BuilderPlugin"
+            )
+        )
+        let builderProduct = try ProductDescription(
+            name: "BuilderProduct",
+            type: .plugin,
+            targets: ["BuilderPlugin"]
+        )
+        let targets = try [
+            TargetDescription(name: "FirmwareCore"),
+            TargetDescription(
+                name: "BuilderPlugin",
+                dependencies: ["BuilderTool"],
+                type: .plugin,
+                pluginCapability: .productBuilder
+            ),
+            TargetDescription(name: "BuilderTool", type: .executable),
+            TargetDescription(name: "Unrelated"),
+        ]
+        let manifest = Manifest.createLocalSourceControlManifest(
+            displayName: "Firmware",
+            path: "/Firmware",
+            toolsVersion: .v6_3,
+            products: [customProductUsingBuilderProduct, customProductUsingBuilderTarget, builderProduct],
+            targets: targets
+        )
+
+        for customProduct in [customProductUsingBuilderProduct, customProductUsingBuilderTarget] {
+            XCTAssertEqual(manifest.targetsRequired(for: [customProduct]).map(\.name).sorted(), [
+                "BuilderPlugin",
+                "BuilderTool",
+                "FirmwareCore",
+            ])
+        }
+    }
+
     func testRequiredDependencies() throws {
         let dependencies: [PackageDependency] = [
             .localSourceControl(path: "/Bar1", requirement: .upToNextMajor(from: "1.0.0")),
@@ -161,6 +213,42 @@ class ManifestTests: XCTestCase {
                     // (Bar3 is unreachable.)
                 ]
             )
+            #endif
+        }
+    }
+
+    func testCustomProductExternalBuilderDependencyIsRequired() throws {
+        let dependencies: [PackageDependency] = [
+            .localSourceControl(path: "/RP2350Support", requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: "/Unused", requirement: .upToNextMajor(from: "1.0.0")),
+        ]
+        let customProduct = try ProductDescription(
+            name: "Firmware",
+            type: .library(.static),
+            targets: ["FirmwareCore"],
+            customProduct: .init(
+                typeIdentifier: "dev.example.pico-u2f",
+                builderPlugin: "RP2350Builder",
+                builderPluginPackage: "RP2350Support"
+            )
+        )
+        let manifest = Manifest.createLocalSourceControlManifest(
+            displayName: "Firmware",
+            path: "/Firmware",
+            toolsVersion: .v6_3,
+            dependencies: dependencies,
+            products: [customProduct],
+            targets: try [TargetDescription(name: "FirmwareCore")],
+            pruneDependencies: true
+        )
+
+        // Exercise both the initial calculation and the cached pruning path.
+        for _ in 0 ..< 2 {
+            let requiredDependencies = try manifest.dependenciesRequired(for: .specific(["Firmware"]))
+            XCTAssertEqual(requiredDependencies.map(\.identity.description), ["rp2350support"])
+
+            #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
+            XCTAssertEqual(requiredDependencies.first?.productFilter, .specific(["RP2350Builder"]))
             #endif
         }
     }
