@@ -153,7 +153,7 @@ public final class Target {
 
     /// The different types of capability that a plug-in can provide.
     ///
-    /// In this version of SwiftPM, only build tool and command plug-ins are supported;
+    /// In this version of SwiftPM, build tool, product builder, and command plug-ins are supported;
     /// this enumeration will be extended as new plug-in capabilities are added.
     public enum PluginCapability {
         /// Specifies that the plug-in provides a build tool capability.
@@ -162,6 +162,15 @@ public final class Target {
         /// that run before or during the build of the target.
         @available(_PackageDescription, introduced: 5.5)
         case buildTool
+
+        /// Specifies that the plug-in creates the final outputs of an artifact product.
+        ///
+        /// SwiftPM invokes the plug-in while planning the build. The plug-in returns
+        /// commands whose declared inputs are built before those commands execute.
+        /// Enable this prototype with `;(experimentalProductBuilders)` in the
+        /// manifest's swift-tools-version header.
+        @available(_PackageDescription, introduced: 6.3)
+        case productBuilder
 
         /// Specifies that the plug-in provides a user command capability.
         ///
@@ -1423,6 +1432,14 @@ extension Target.PluginCapability {
     public static func buildTool() -> Target.PluginCapability {
         return .buildTool
     }
+
+    /// The plug-in builds the final outputs of an artifact product.
+    ///
+    /// - Returns: A plug-in capability that defines a product builder.
+    @available(_PackageDescription, introduced: 6.3)
+    public static func productBuilder() -> Target.PluginCapability {
+        return .productBuilder
+    }
 }
 
 /// The intended use case of the command plug-in.
@@ -1561,4 +1578,3 @@ extension Target.PluginUsage: ExpressibleByStringLiteral {
         self = .plugin(name: value, package: nil)
     }
 }
-

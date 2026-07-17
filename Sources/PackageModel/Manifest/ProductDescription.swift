@@ -15,6 +15,33 @@ import Basics
 /// The product description
 public struct ProductDescription: Hashable, Codable, Sendable {
 
+    /// Describes an artifact product whose final artifacts are produced by a package plug-in.
+    public struct CustomProduct: Hashable, Codable, Sendable {
+        /// A stable identifier understood by the product builder plug-in.
+        public let typeIdentifier: String
+
+        /// The name of the plug-in that builds the product.
+        public let builderPlugin: String
+
+        /// The package that provides the builder plug-in, or `nil` when it is in this package.
+        public let builderPluginPackage: String?
+
+        /// Opaque arguments passed to the product builder plug-in.
+        public let arguments: [String]
+
+        public init(
+            typeIdentifier: String,
+            builderPlugin: String,
+            builderPluginPackage: String? = nil,
+            arguments: [String] = []
+        ) {
+            self.typeIdentifier = typeIdentifier
+            self.builderPlugin = builderPlugin
+            self.builderPluginPackage = builderPluginPackage
+            self.arguments = arguments
+        }
+    }
+
     /// The name of the product.
     public let name: String
 
@@ -27,11 +54,15 @@ public struct ProductDescription: Hashable, Codable, Sendable {
     /// The product-specific settings declared for this product.
     public let settings: [ProductSetting]
 
+    /// The product builder declaration, if this is an artifact product.
+    public let customProduct: CustomProduct?
+
     public init(
         name: String,
         type: ProductType,
         targets: [String],
-        settings: [ProductSetting] = []
+        settings: [ProductSetting] = [],
+        customProduct: CustomProduct? = nil
     ) throws {
         guard type != .test else {
             throw InternalError("Declaring test products isn't supported: \(name):\(targets)")
@@ -40,6 +71,7 @@ public struct ProductDescription: Hashable, Codable, Sendable {
         self.type = type
         self.targets = targets
         self.settings = settings
+        self.customProduct = customProduct
     }
 }
 

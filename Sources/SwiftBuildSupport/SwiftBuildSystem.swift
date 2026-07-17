@@ -473,7 +473,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             return result
         }
 
-        try await writePIF(buildParameters: self.buildParameters)
+        let pifResult = try await generatePIFAndAccompanyingMetadata(preserveStructure: false)
+        try self.fileSystem.writeIfChanged(
+            path: self.buildParameters.pifManifest,
+            string: pifResult.pif
+        )
 
         guard !self.observabilityScope.errorsReported else {
             throw Diagnostics.fatalError
@@ -483,6 +487,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return try await startSWBuildOperation(
             pifTargetName: subset.pifTargetName(for: graph),
             buildOutputs: buildOutputs,
+            artifactProducts: pifResult.artifactProducts
         )
     }
 
@@ -629,7 +634,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     private func startSWBuildOperation(
         pifTargetName: String,
-        buildOutputs: [BuildOutput]
+        buildOutputs: [BuildOutput],
+        artifactProducts: [PIFGenerationResult.ArtifactProduct]
     ) async throws -> BuildResult {
         let buildStartTime = ContinuousClock.Instant.now
         var symbolGraphOptions: BuildOutput.SymbolGraphOptions?
@@ -780,7 +786,18 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                             }
 
                             let targetInfo = try await session.configuredTargets(buildDescription: buildDescriptionID, buildRequest: request)
+                            let configuredTargetGUIDs = Set(
+                                targetInfo.map(\.identifier.targetGUID.rawValue)
+                            )
+                            let hiddenArchiveTargetGUIDs = Set(
+                                artifactProducts.map(\.archiveTargetGUID)
+                            )
                             artifacts = targetInfo.compactMap { target in
+                                guard !hiddenArchiveTargetGUIDs.contains(
+                                    target.identifier.targetGUID.rawValue
+                                ) else {
+                                    return nil
+                                }
                                 guard let artifactInfo = target.artifactInfo else {
                                     return nil
                                 }
@@ -805,6 +822,24 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                                     artifact: .init(path: artifactInfo.path, kind: kind),
                                     umbrellaTestProductName: umbrellaTestProductNamesByArtifactName[name]
                                 )
+                            }
+                            for product in artifactProducts where configuredTargetGUIDs.contains(
+                                product.finalizerTargetGUID
+                            ) {
+                                artifacts?.append(contentsOf: product.outputFiles.map {
+                                    BuildResult.BuiltArtifact(
+                                        name: product.name,
+                                        artifact: .init(path: $0.pathString, kind: .file),
+                                        umbrellaTestProductName: nil
+                                    )
+                                })
+                                artifacts?.append(contentsOf: product.outputDirectories.map {
+                                    BuildResult.BuiltArtifact(
+                                        name: product.name,
+                                        artifact: .init(path: $0.pathString, kind: .directory),
+                                        umbrellaTestProductName: nil
+                                    )
+                                })
                             }
                         } else {
                             self.observabilityScope.emit(error: "failed to compute built artifacts list")
@@ -1395,7 +1430,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     addLocalRpaths: self.buildParameters.linkingParameters.shouldDisableLocalRpath ? .never : .always,
                     materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
                     createDynamicVariantsForLibraryProducts: false,
-                    hostBuildProductsPath: try await self.buildProductsPath(for: self.hostBuildParameters)
+                    hostBuildProductsPath: try await self.buildProductsPath(for: self.hostBuildParameters),
+                    destinationBuildProductsPath: try await self.buildProductsPath(for: self.buildParameters)
                 ),
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope,

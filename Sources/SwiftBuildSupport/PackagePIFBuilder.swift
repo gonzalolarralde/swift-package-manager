@@ -34,8 +34,10 @@ import struct PackageModel.ToolsVersion
 import struct PackageGraph.ModulesGraph
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedPackage
+import struct PackageGraph.ResolvedProduct
 
 import struct SPMBuildCore.BuildParameters
+import struct SPMBuildCore.ProductBuilderPluginInvocationResult
 
 import enum SwiftBuild.ProjectModel
 
@@ -173,6 +175,9 @@ public final class PackagePIFBuilder {
     /// Records the results of applying build tool plugins to modules in the package.
     let buildToolPluginResultsByTargetName: [String: [PackagePIFBuilder.BuildToolPluginInvocationResult]]
 
+    /// Records the declarative finalization plans for artifact products in the package.
+    let productBuilderResultsByProductID: [ResolvedProduct.ID: ProductBuilderPluginInvocationResult]
+
     /// Whether to create dynamic libraries for dynamic products.
     ///
     /// This tracks removing this *user default* once clients stop relying on this implementation detail:
@@ -237,6 +242,7 @@ public final class PackagePIFBuilder {
         packageManifest: PackageModel.Manifest,
         delegate: PackagePIFBuilder.BuildDelegate,
         buildToolPluginResultsByTargetName: [String: [BuildToolPluginInvocationResult]],
+        productBuilderResultsByProductID: [ResolvedProduct.ID: ProductBuilderPluginInvocationResult] = [:],
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
@@ -253,6 +259,7 @@ public final class PackagePIFBuilder {
         self.modulesGraph = modulesGraph
         self.delegate = delegate
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName
+        self.productBuilderResultsByProductID = productBuilderResultsByProductID
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
         self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
         self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
@@ -271,6 +278,7 @@ public final class PackagePIFBuilder {
         packageManifest: PackageModel.Manifest,
         delegate: PackagePIFBuilder.BuildDelegate,
         buildToolPluginResultsByTargetName: [String: BuildToolPluginInvocationResult],
+        productBuilderResultsByProductID: [ResolvedProduct.ID: ProductBuilderPluginInvocationResult] = [:],
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
@@ -287,6 +295,7 @@ public final class PackagePIFBuilder {
         self.modulesGraph = modulesGraph
         self.delegate = delegate
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName.mapValues { [$0] }
+        self.productBuilderResultsByProductID = productBuilderResultsByProductID
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
         self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
         self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
@@ -515,6 +524,10 @@ public final class PackagePIFBuilder {
 
         // For each of the **products** in the package we create a corresponding `PIFTarget` of the appropriate type.
         for product in self.package.products {
+            if product.underlying.customProduct != nil {
+                try projectBuilder.makeArtifactProduct(product)
+                continue
+            }
             switch product.type {
             case .library(.static):
                 let libraryType = self.delegate.customLibraryType(product: product.underlying) ?? .static

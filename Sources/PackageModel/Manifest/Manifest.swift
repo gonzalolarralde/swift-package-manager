@@ -273,11 +273,28 @@ public final class Manifest: Sendable {
         if let dependencies = self._requiredDependencies[productFilter] {
             return dependencies
         } else {
+            let products: [ProductDescription]
+            switch productFilter {
+            case .everything:
+                products = self.products
+            case .specific(let productNames):
+                products = self.products.filter { productNames.contains($0.name) }
+            }
+
             let targets = self.targetsRequired(for: productFilter)
+            let requiredBuilderPlugins = products.compactMap { product -> TargetDescription.PluginUsage? in
+                guard let customProduct = product.customProduct else {
+                    return nil
+                }
+                return .plugin(
+                    name: customProduct.builderPlugin,
+                    package: customProduct.builderPluginPackage
+                )
+            }
             let dependencies = self.dependenciesRequired(
                 for: targets,
-                keepUnused: productFilter == .everything,
-                traitConfiguration
+                requiredPlugIns: requiredBuilderPlugins,
+                keepUnused: productFilter == .everything
             )
             self._requiredDependencies[productFilter] = dependencies
             return dependencies
@@ -320,6 +337,16 @@ public final class Manifest: Sendable {
                 }
             }
 
+            for customProduct in self.products.compactMap(\.customProduct) {
+                let builderPlugin = TargetDescription.PluginUsage.plugin(
+                    name: customProduct.builderPlugin,
+                    package: customProduct.builderPluginPackage
+                )
+                if let dependency = self.packageDependency(referencedBy: builderPlugin) {
+                    requiredDependencies.insert(dependency.identity)
+                }
+            }
+
             let dependencies = self.dependencies.filter { requiredDependencies.contains($0.identity) }
             // using .nothing as cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false
             self._requiredDependencies[.nothing] = dependencies
@@ -330,11 +357,21 @@ public final class Manifest: Sendable {
 
     /// Returns the targets required for building the provided products.
     public func targetsRequired(for products: [ProductDescription]) -> [TargetDescription] {
-        let productsByName = Dictionary(products.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
+        let productsByName = Dictionary(self.products.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
         let targetsByName = Dictionary(targets.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
         let productTargetNames = products.flatMap(\.targets)
+        let builderTargetNames = products.compactMap(\.customProduct).filter {
+            $0.builderPluginPackage == nil
+        }.flatMap { customProduct -> [String] in
+            if targetsByName[customProduct.builderPlugin] != nil {
+                [customProduct.builderPlugin]
+            } else {
+                productsByName[customProduct.builderPlugin]?.targets ?? []
+            }
+        }
+        let rootTargetNames = productTargetNames + builderTargetNames
 
-        let dependentTargetNames = transitiveClosure(productTargetNames, successors: { targetName in
+        let dependentTargetNames = transitiveClosure(rootTargetNames, successors: { targetName in
 
             if let target = targetsByName[targetName] {
                 let dependencies: [String] = target.dependencies.compactMap { dependency in
@@ -369,7 +406,7 @@ public final class Manifest: Sendable {
 
         })
 
-        let requiredTargetNames = Set(productTargetNames).union(dependentTargetNames)
+        let requiredTargetNames = Set(rootTargetNames).union(dependentTargetNames)
         let requiredTargets = requiredTargetNames.compactMap { targetsByName[$0] }
         return requiredTargets
     }
@@ -380,6 +417,7 @@ public final class Manifest: Sendable {
     /// without removing any dependencies from the list, specify `keepUnused: true`.)
     private func dependenciesRequired(
         for targets: [TargetDescription],
+        requiredPlugIns: [TargetDescription.PluginUsage] = [],
         keepUnused: Bool = false
     ) -> [PackageDependency] {
         var registry: (known: [PackageIdentity: ProductFilter], unknown: Set<String>) = ([:], [])
@@ -396,6 +434,9 @@ public final class Manifest: Sendable {
             for requiredPlugIn in target.pluginUsages ?? [] {
                 self.register(requiredPlugIn: requiredPlugIn, registry: &registry, availablePackages: availablePackages)
             }
+        }
+        for requiredPlugIn in requiredPlugIns {
+            self.register(requiredPlugIn: requiredPlugIn, registry: &registry, availablePackages: availablePackages)
         }
 
         // Products whose package could not be determined are marked as needed on every dependency.
