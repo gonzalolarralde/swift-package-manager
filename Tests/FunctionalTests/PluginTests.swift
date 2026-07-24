@@ -38,6 +38,144 @@ struct PluginTests {
             .Feature.Command.Build,
             .Feature.CommandLineArguments.Product,
             .Feature.CommandLineArguments.BuildSystem,
+        )
+    )
+    func artifactProductBuilderProducesIncrementalArtifacts() async throws {
+        try await fixture(name: "Miscellaneous/Plugins/CustomProductBuilder") { fixturePath in
+            func build() async throws -> String {
+                try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: .debug,
+                    extraArgs: ["--product", "Firmware"],
+                    buildSystem: .swiftbuild
+                ).stdout
+            }
+
+            _ = try await build()
+
+            let outputs = try walk(fixturePath.appending(".build")).filter {
+                ["Firmware.elf", "Firmware.bin", "Firmware.uf2"].contains($0.basename)
+            }
+            #expect(Set(outputs.map(\.basename)) == ["Firmware.elf", "Firmware.bin", "Firmware.uf2"])
+            let uf2 = try #require(outputs.first(where: { $0.basename == "Firmware.uf2" }))
+            let uf2Contents: String = try localFileSystem.readFileContents(uf2)
+            #expect(uf2Contents.contains("type=dev.swiftpm.example.pico-uf2"))
+            #expect(uf2Contents.contains("copied-board-resource"))
+            #expect(uf2Contents.contains("nested-asset-v1"))
+            #expect(uf2Contents.contains("\"configuration\": \"fixture-v1\""))
+
+            var outputModificationTime = try localFileSystem.getFileInfo(uf2).modTime
+
+            func expectBuilderRan(after mutation: String) async throws {
+                _ = try await build()
+                let newModificationTime = try localFileSystem.getFileInfo(uf2).modTime
+                #expect(
+                    newModificationTime != outputModificationTime,
+                    "builder did not update its output after \(mutation)"
+                )
+                outputModificationTime = newModificationTime
+            }
+
+            _ = try await build()
+            #expect(try localFileSystem.getFileInfo(uf2).modTime == outputModificationTime)
+
+            try localFileSystem.writeFileContents(
+                fixturePath.appending(components: "Sources", "FirmwareCore", "FirmwareCore.swift"),
+                string: """
+                    import FirmwareC
+
+                    public func firmwareEntryPoint() -> Int {
+                        Int(firmware_board_identifier()) + 1
+                    }
+                    """
+            )
+            try await expectBuilderRan(after: "a Swift source change")
+
+            try localFileSystem.writeFileContents(
+                fixturePath.appending(
+                    components: "Sources", "FirmwareCore", "Assets", "Nested", "asset.txt"
+                ),
+                string: "nested-asset-v2\n"
+            )
+            try await expectBuilderRan(after: "a nested copied-resource change")
+
+            try localFileSystem.writeFileContents(
+                fixturePath.appending(
+                    components: "Sources", "FirmwareCore", "Resources", "config.json"
+                ),
+                string: #"{"configuration":"fixture-v2"}"#
+            )
+            try await expectBuilderRan(after: "a processed-resource change")
+
+            let manifestPath = fixturePath.appending("Package.swift")
+            let manifest: String = try localFileSystem.readFileContents(manifestPath)
+            try localFileSystem.writeFileContents(
+                manifestPath,
+                string: manifest.replacingOccurrences(
+                    of: #".picoUF2(name: "Firmware", target: "FirmwareCore", board: "pico2")"#,
+                    with: #".picoUF2(name: "Firmware", target: "FirmwareCore", board: "pico2-r2")"#
+                )
+            )
+            try await expectBuilderRan(after: "an artifact-product argument change")
+
+            let toolPath = fixturePath.appending(
+                components: "RP2350Support", "Sources", "FirmwareFinalizer", "main.swift"
+            )
+            let toolSource: String = try localFileSystem.readFileContents(toolPath)
+            try localFileSystem.writeFileContents(
+                toolPath,
+                string: toolSource.replacingOccurrences(
+                    of: "let arguments = Array(CommandLine.arguments.dropFirst())",
+                    with: """
+                        let toolRevision = "fixture-v2"
+                        _ = toolRevision
+                        let arguments = Array(CommandLine.arguments.dropFirst())
+                        """
+                )
+            )
+            try await expectBuilderRan(after: "a builder-tool source change")
+
+            try localFileSystem.removeFileTree(uf2)
+            _ = try await build()
+            #expect(localFileSystem.exists(uf2))
+
+            let finalUF2Contents: String = try localFileSystem.readFileContents(uf2)
+            #expect(finalUF2Contents.contains("board=pico2-r2"))
+            #expect(finalUF2Contents.contains("nested-asset-v2"))
+            #expect(finalUF2Contents.contains(#""configuration":"fixture-v2""#))
+        }
+    }
+
+    @Test(
+        .requiresSwiftConcurrencySupport,
+        .tags(
+            .Feature.Command.Build,
+            .Feature.CommandLineArguments.Product,
+            .Feature.CommandLineArguments.BuildSystem,
+        )
+    )
+    func artifactProductRejectsNativeBuildSystem() async throws {
+        try await fixture(name: "Miscellaneous/Plugins/CustomProductBuilder") { fixturePath in
+            let result = try await executeSwiftBuild(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["--product", "Firmware"],
+                buildSystem: .native,
+                throwIfCommandFails: false
+            )
+            #expect(result.stderr.contains(
+                "artifact product 'Firmware' requires the Swift Build backend; the native build system "
+                    + "does not support product-builder plug-ins"
+            ), "stderr:\n\(result.stderr)")
+        }
+    }
+
+    @Test(
+        .requiresSwiftConcurrencySupport,
+        .tags(
+            .Feature.Command.Build,
+            .Feature.CommandLineArguments.Product,
+            .Feature.CommandLineArguments.BuildSystem,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )

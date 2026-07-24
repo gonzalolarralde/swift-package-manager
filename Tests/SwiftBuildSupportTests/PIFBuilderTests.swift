@@ -32,7 +32,8 @@ extension PIFBuilderParameters {
         addLocalRpaths: PackagePIFBuilder.AddLocalRpaths,
         shouldCreateDylibForDynamicProducts: Bool = false,
         pluginScriptRunner: PluginScriptRunner? = nil,
-        hostBuildProductsPath: Basics.AbsolutePath? = nil
+        hostBuildProductsPath: Basics.AbsolutePath? = nil,
+        disableSandbox: Bool = false
     ) throws -> Self {
         try self.init(
             isPackageAccessModifierSupported: true,
@@ -48,7 +49,7 @@ extension PIFBuilderParameters {
                 cacheDir: temporaryDirectory.appending(component: "plugin-cache-dir"),
                 toolchain: try UserToolchain.default
             ),
-            disableSandbox: false,
+            disableSandbox: disableSandbox,
             pluginWorkingDirectory: temporaryDirectory.appending(component: "plugin-working-dir"),
             additionalFileRules: [],
             addLocalRpaths: addLocalRpaths,
@@ -65,6 +66,7 @@ fileprivate func withGeneratedPIF(
     shouldCreateDylibForDynamicProducts: Bool = true,
     buildParameters: BuildParameters? = nil,
     hostBuildProductsPath: AbsolutePath? = nil,
+    disableSandbox: Bool = false,
     do doIt: (SwiftBuildSupport.PIF.TopLevelObject, TestingObservability, AbsolutePath) async throws -> ()
 ) async throws {
     let buildParameters = if let buildParameters {
@@ -100,7 +102,8 @@ fileprivate func withGeneratedPIF(
                 temporaryDirectory: fixturePath,
                 addLocalRpaths: addLocalRpaths,
                 shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts,
-                hostBuildProductsPath: hostBuildProductsPath
+                hostBuildProductsPath: hostBuildProductsPath,
+                disableSandbox: disableSandbox
             ),
             fileSystem: localFileSystem,
             observabilityScope: observabilitySystem.topScope
@@ -718,6 +721,145 @@ struct PIFBuilderTests {
                 #expect(commandLine.contains { $0.contains(hostBuildPath.pathString) })
                 #expect(!commandLine.contains { $0.contains(destBuildPath.pathString) })
             }
+        }
+    }
+
+    @Test func artifactProductLowersToArchiveAndAggregateFinalizer() async throws {
+        try await withGeneratedPIF(
+            fromFixture: "Miscellaneous/Plugins/CustomProductBuilder",
+            shouldCreateDylibForDynamicProducts: false
+        ) { pif, observabilitySystem, _ in
+            let errors = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "PIF generation diagnostics: \(errors)")
+
+            let packageProject = try pif.workspace.project(named: "CustomProductBuilder")
+            let archive = try packageProject.target(named: "Firmware-artifact-archive")
+            let finalizer = try packageProject.target(named: "Firmware-product")
+            let supportProject = try pif.workspace.project(named: "RP2350Support")
+            let builderPlugin = try supportProject.target(named: "FirmwareBuilder")
+
+            guard case .target(let archiveTarget) = archive else {
+                Issue.record("expected a standard archive target")
+                return
+            }
+            #expect(archiveTarget.productType == .staticArchive)
+
+            guard case .aggregate = finalizer else {
+                Issue.record("expected an aggregate finalizer target")
+                return
+            }
+            #expect(finalizer.common.dependencies.contains { $0.targetId == archive.common.id })
+            #expect(finalizer.common.dependencies.contains { $0.targetId == builderPlugin.common.id })
+            #expect(finalizer.common.dependencies.contains {
+                $0.targetId.value.contains("FirmwareCore") && $0.targetId.value.contains("RESOURCE")
+            })
+
+            let task = try #require(finalizer.common.customTasks.only)
+            #expect(task.executionDescription == "Finalizing Firmware as ELF, BIN, and UF2")
+            #expect(task.commandLine.contains { $0.hasSuffix("/FirmwareFinalizer") })
+            #expect(task.inputFilePaths.contains {
+                let name = URL(fileURLWithPath: $0).lastPathComponent
+                return name.hasPrefix("libFirmware") && name.hasSuffix(".a")
+            }, "input files: \(task.inputFilePaths)")
+            #expect(task.inputDirectoryPaths.contains {
+                $0.hasSuffix(
+                    "/CustomProductBuilder_FirmwareCore.bundle/Contents/Resources/Assets"
+                )
+            })
+            #expect(task.inputFilePaths.contains { $0.hasSuffix("/Contents/Resources/board.txt") })
+            #expect(task.inputFilePaths.contains { $0.hasSuffix("/Contents/Resources/config.json") })
+            #expect(Set(task.outputFilePaths.map(URL.init(fileURLWithPath:)).map(\.lastPathComponent)) == [
+                "Firmware.elf",
+                "Firmware.bin",
+                "Firmware.uf2",
+            ])
+            #expect(task.outputDirectoryPaths.isEmpty)
+
+            let aggregateProject = try pif.workspace.project(named: "Aggregate")
+            let allProducts = try aggregateProject.target(named: PIFBuilder.allExcludingTestsTargetName)
+            #expect(allProducts.common.dependencies.contains { $0.targetId == finalizer.common.id })
+            #expect(!allProducts.common.dependencies.contains { $0.targetId == archive.common.id })
+        }
+    }
+
+    @Test func artifactProductRejectsLinkerSettingsBeforePluginPlanning() async throws {
+        let fileSystem = InMemoryFileSystem(emptyFiles: [
+            "/Firmware/Sources/FirmwareCore/Firmware.swift",
+            "/Firmware/Plugins/FirmwareBuilder/Plugin.swift",
+        ])
+        let graph = try loadModulesGraph(
+            fileSystem: fileSystem,
+            manifests: [
+                .createRootManifest(
+                    displayName: "Firmware",
+                    path: "/Firmware",
+                    toolsVersion: .v6_3,
+                    products: [
+                        try ProductDescription(
+                            name: "Firmware",
+                            type: .library(.static),
+                            targets: ["FirmwareCore"],
+                            customProduct: .init(
+                                typeIdentifier: "dev.example.firmware",
+                                builderPlugin: "FirmwareBuilder"
+                            )
+                        ),
+                    ],
+                    targets: [
+                        try TargetDescription(
+                            name: "FirmwareCore",
+                            settings: [
+                                .init(tool: .linker, kind: .linkedLibrary("z")),
+                            ]
+                        ),
+                        try TargetDescription(
+                            name: "FirmwareBuilder",
+                            type: .plugin,
+                            pluginCapability: .productBuilder
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+        let builder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: "/Firmware/.build",
+                addLocalRpaths: .always,
+                pluginScriptRunner: NoOpPluginScriptRunner()
+            ),
+            fileSystem: fileSystem,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+
+        await #expect(throws: StringError(
+            "artifact product 'Firmware' includes linker setting 'LINK_LIBRARIES' "
+                + "from target 'FirmwareCore'; the product builder must own final linkage"
+        )) {
+            _ = try await builder.constructPIF(
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    buildSystemKind: .swiftbuild
+                )
+            )
+        }
+    }
+
+    @Test func artifactProductHonorsDisabledPluginSandbox() async throws {
+        try await withGeneratedPIF(
+            fromFixture: "Miscellaneous/Plugins/CustomProductBuilder",
+            shouldCreateDylibForDynamicProducts: false,
+            disableSandbox: true
+        ) { pif, observabilitySystem, _ in
+            let errors = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "PIF generation diagnostics: \(errors)")
+
+            let packageProject = try pif.workspace.project(named: "CustomProductBuilder")
+            let finalizer = try packageProject.target(named: "Firmware-product")
+            let task = try #require(finalizer.common.customTasks.only)
+            #expect(task.commandLine.first?.hasSuffix("/FirmwareFinalizer") == true)
+            #expect(!task.commandLine.contains("/usr/bin/sandbox-exec"))
         }
     }
 

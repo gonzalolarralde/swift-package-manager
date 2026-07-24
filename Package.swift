@@ -937,7 +937,11 @@ let package = Package(
         ),
         .testTarget(
             name: "PackagePluginAPITests",
-            dependencies: ["PackagePlugin", "_InternalTestSupport"]
+            dependencies: ["PackagePlugin", "_InternalTestSupport"],
+            swiftSettings: [
+                // Exercise PackagePlugin APIs newer than this repository manifest's tools version.
+                .unsafeFlags(["-package-description-version", "999.0"]),
+            ]
         ),
         .testTarget(
             name: "PackageRegistryTests",

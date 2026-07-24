@@ -45,6 +45,25 @@ final class PackageModelTests: XCTestCase {
         checkCodable(.test)
     }
 
+    func testCustomProductDescriptionCodable() throws {
+        let product = try ProductDescription(
+            name: "Firmware",
+            type: .library(.static),
+            targets: ["FirmwareCore"],
+            customProduct: .init(
+                typeIdentifier: "com.example.picou2f",
+                builderPlugin: "RP2350Builder",
+                builderPluginPackage: "RP2350Support",
+                arguments: ["--family", "rp2350"]
+            )
+        )
+
+        let data = try JSONEncoder.makeWithDefaults().encode(product)
+        let decoded = try JSONDecoder.makeWithDefaults().decode(ProductDescription.self, from: data)
+
+        XCTAssertEqual(decoded, product)
+    }
+
     func testProductFilterCodable() throws {
         // Test ProductFilter.everything
         try {

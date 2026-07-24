@@ -1655,6 +1655,65 @@ struct ModulesGraphTests {
     }
 
     @Test
+    func customProductCannotBeTargetDependency() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/App/Sources/App/App.swift",
+            "/Device/Sources/FirmwareCore/FirmwareCore.swift",
+            "/Device/Plugins/FirmwareBuilder/Plugin.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        #expect {
+            try loadModulesGraph(
+                fileSystem: fs,
+                manifests: [
+                    Manifest.createRootManifest(
+                        displayName: "App",
+                        path: "/App",
+                        dependencies: [.fileSystem(path: "/Device")],
+                        targets: [
+                            TargetDescription(
+                                name: "App",
+                                dependencies: [.product(name: "Firmware", package: "device")]
+                            ),
+                        ]
+                    ),
+                    Manifest.createFileSystemManifest(
+                        displayName: "Device",
+                        path: "/Device",
+                        products: [
+                            try ProductDescription(
+                                name: "Firmware",
+                                type: .library(.static),
+                                targets: ["FirmwareCore"],
+                                customProduct: .init(
+                                    typeIdentifier: "example.firmware",
+                                    builderPlugin: "FirmwareBuilder"
+                                )
+                            ),
+                        ],
+                        targets: [
+                            TargetDescription(name: "FirmwareCore"),
+                            TargetDescription(
+                                name: "FirmwareBuilder",
+                                type: .plugin,
+                                pluginCapability: .productBuilder
+                            ),
+                        ]
+                    ),
+                ],
+                observabilityScope: observability.topScope
+            )
+        } throws: { error in
+            guard let error = error as? PackageGraphError else {
+                return false
+            }
+            return error.description == "target 'App' cannot depend on artifact product 'Firmware' from package 'device'; artifact products are built by product-builder plugins and cannot be linked as target dependencies"
+        }
+    }
+
+    @Test
     func executableTargetDependency() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:

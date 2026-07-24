@@ -272,6 +272,231 @@ final class PluginInvocationTests: XCTestCase {
         XCTAssertEqual(evalFirstResult.textOutput, "Hello Plugin!")
     }
 
+    func testProductBuilderRoundTrip() async throws {
+        let fileSystem = InMemoryFileSystem(emptyFiles:
+            "/Firmware/Plugins/FirmwareBuilder/plugin.swift",
+            "/Firmware/Sources/FirmwareCore/source.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let descriptor = ProductDescription.CustomProduct(
+            typeIdentifier: "com.example.picou2f",
+            builderPlugin: "FirmwareBuilder",
+            arguments: ["--family", "rp2350"]
+        )
+        let graph = try loadModulesGraph(
+            fileSystem: fileSystem,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Firmware",
+                    path: "/Firmware",
+                    toolsVersion: .v6_3,
+                    products: [
+                        try ProductDescription(
+                            name: "Firmware",
+                            type: .library(.static),
+                            targets: ["FirmwareCore"],
+                            customProduct: descriptor
+                        ),
+                    ],
+                    targets: [
+                        TargetDescription(name: "FirmwareCore", type: .regular),
+                        TargetDescription(
+                            name: "FirmwareBuilder",
+                            type: .plugin,
+                            pluginCapability: .productBuilder
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let package = try XCTUnwrap(graph.rootPackages.first)
+        let product = try XCTUnwrap(package.products.first { $0.name == "Firmware" })
+        let plugin = try XCTUnwrap(
+            package.modules.first { $0.name == "FirmwareBuilder" }?.underlying as? PluginModule
+        )
+
+        let archive = AbsolutePath("/Firmware/.build/FirmwareCore.a")
+        let resource = AbsolutePath("/Firmware/.build/resources/config.json")
+        let resourceBundle = AbsolutePath("/Firmware/.build/Firmware_FirmwareCore.bundle")
+        let pluginOutputDirectory = AbsolutePath("/Firmware/.build/plugins/FirmwareBuilder")
+        let productOutputDirectory = pluginOutputDirectory.appending("outputs")
+        let finalFile = productOutputDirectory.appending("Firmware.uf2")
+        let finalDirectory = productOutputDirectory.appending("Firmware.dSYM")
+        let tool = AbsolutePath("/tools/uf2gen")
+
+        struct MockPluginScriptRunner: PluginScriptRunner {
+            let expectedTypeIdentifier: String
+            let expectedArchive: AbsolutePath
+            let expectedResource: AbsolutePath
+            let expectedResourceBundle: AbsolutePath
+            let expectedOutputDirectory: AbsolutePath
+            let finalFile: AbsolutePath
+            let finalDirectory: AbsolutePath
+            let tool: AbsolutePath
+
+            var hostTriple: Triple {
+                get throws { try UserToolchain.default.targetTriple }
+            }
+
+            func compilePluginScript(
+                sourceFiles: [AbsolutePath],
+                pluginName: String,
+                toolsVersion: ToolsVersion,
+                workers: UInt32,
+                observabilityScope: ObservabilityScope,
+                callbackQueue: DispatchQueue,
+                delegate: PluginScriptCompilerDelegate,
+                completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
+            ) {
+                callbackQueue.sync { completion(.failure(StringError("unimplemented"))) }
+            }
+
+            func buildCommandLine(
+                sourceFiles: [AbsolutePath],
+                pluginName: String,
+                toolsVersion: ToolsVersion,
+                workers: UInt32,
+                observabilityScope: ObservabilityScope?
+            ) -> (commandLine: [String], execName: String, execFilePath: AbsolutePath, diagFilePath: AbsolutePath) {
+                fatalError("Not implemented")
+            }
+
+            func runPluginScript(
+                sourceFiles: [AbsolutePath],
+                pluginName: String,
+                initialMessage: Data,
+                toolsVersion: ToolsVersion,
+                workingDirectory: AbsolutePath,
+                writableDirectories: [AbsolutePath],
+                readOnlyDirectories: [AbsolutePath],
+                allowNetworkConnections: [SandboxNetworkPermission],
+                workers: UInt32,
+                fileSystem: FileSystem,
+                observabilityScope: ObservabilityScope,
+                callbackQueue: DispatchQueue,
+                delegate: PluginScriptCompilerDelegate & PluginScriptRunnerDelegate
+            ) async throws -> Int32 {
+                let message = try JSONDecoder.makeWithDefaults().decode(
+                    HostToPluginMessage.self,
+                    from: initialMessage
+                )
+                guard case let .createProductBuildPlan(
+                    context,
+                    rootPackageId,
+                    productId,
+                    typeIdentifier,
+                    aggregateStaticLibraryId,
+                    resourceIds,
+                    resourceBundleIds,
+                    arguments,
+                    outputDirectoryId,
+                    buildConfiguration,
+                    targetTriple
+                ) = message else {
+                    XCTFail("expected createProductBuildPlan, got \(message)")
+                    return 1
+                }
+
+                func url(for id: HostToPluginMessage.InputContext.URL.Id) -> URL {
+                    let path = context.paths[id]
+                    if let baseURLId = path.baseURLId {
+                        return url(for: baseURLId).appendingPathComponent(path.subpath)
+                    }
+                    #if os(Windows)
+                    return URL(fileURLWithPath: path.subpath)
+                    #else
+                    return URL(fileURLWithPath: "/").appendingPathComponent(path.subpath)
+                    #endif
+                }
+
+                XCTAssertEqual(context.packages[rootPackageId].displayName, "Firmware")
+                XCTAssertEqual(context.products[productId].name, "Firmware")
+                XCTAssertEqual(typeIdentifier, self.expectedTypeIdentifier)
+                XCTAssertEqual(try url(for: aggregateStaticLibraryId).filePath, self.expectedArchive)
+                XCTAssertEqual(try resourceIds.map { try url(for: $0).filePath }, [self.expectedResource])
+                XCTAssertEqual(try resourceBundleIds.map { try url(for: $0).filePath }, [self.expectedResourceBundle])
+                XCTAssertEqual(arguments, ["--family", "rp2350"])
+                XCTAssertEqual(try url(for: outputDirectoryId).filePath, self.expectedOutputDirectory)
+                XCTAssertEqual(buildConfiguration, "release")
+                XCTAssertEqual(targetTriple, "arm64-unknown-none-eabi")
+
+                let buildCommand = PluginToHostMessage.defineBuildCommand(
+                    configuration: .init(
+                        displayName: "Create UF2",
+                        executable: self.tool.asURL,
+                        arguments: [self.finalFile.pathString],
+                        environment: [:],
+                        workingDirectory: nil
+                    ),
+                    inputFiles: [],
+                    outputFiles: [self.finalFile.asURL, self.finalDirectory.asURL]
+                )
+                _ = try await delegate.handleMessage(
+                    data: JSONEncoder.makeWithDefaults().encode(buildCommand)
+                )
+                let finalOutputs = PluginToHostMessage.defineProductBuildPlan(
+                    outputFiles: [self.finalFile.asURL],
+                    outputDirectories: [self.finalDirectory.asURL]
+                )
+                _ = try await delegate.handleMessage(
+                    data: JSONEncoder.makeWithDefaults().encode(finalOutputs)
+                )
+                return 0
+            }
+        }
+
+        let result = try await plugin.invokeProductBuilder(
+            package: package,
+            product: product,
+            typeIdentifier: descriptor.typeIdentifier,
+            aggregateStaticLibrary: archive,
+            resourceFiles: [resource],
+            resourceBundles: [resourceBundle],
+            arguments: descriptor.arguments,
+            productOutputDirectory: productOutputDirectory,
+            buildConfiguration: "release",
+            targetTriple: "arm64-unknown-none-eabi",
+            buildEnvironment: .init(platform: .macOS, configuration: .release),
+            workers: 1,
+            scriptRunner: MockPluginScriptRunner(
+                expectedTypeIdentifier: descriptor.typeIdentifier,
+                expectedArchive: archive,
+                expectedResource: resource,
+                expectedResourceBundle: resourceBundle,
+                expectedOutputDirectory: productOutputDirectory,
+                finalFile: finalFile,
+                finalDirectory: finalDirectory,
+                tool: tool
+            ),
+            workingDirectory: "/Firmware",
+            pluginOutputDirectory: pluginOutputDirectory,
+            toolSearchDirectories: [],
+            accessibleTools: ["uf2gen": .init(path: tool, source: .vended)],
+            writableDirectories: [pluginOutputDirectory],
+            readOnlyDirectories: ["/Firmware"],
+            allowNetworkConnections: [],
+            pkgConfigDirectories: [],
+            sdkRootPath: nil,
+            fileSystem: fileSystem,
+            modulesGraph: graph,
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertTrue(result.succeeded, "\(result.diagnostics)")
+        XCTAssertEqual(result.product.id, product.id)
+        XCTAssertEqual(result.outputFiles, [finalFile])
+        XCTAssertEqual(result.outputDirectories, [finalDirectory])
+        XCTAssertTrue(fileSystem.isDirectory(productOutputDirectory))
+        let command = try XCTUnwrap(result.buildCommands.first)
+        XCTAssertEqual(command.configuration.displayName, "Create UF2")
+        XCTAssertEqual(command.inputFiles, [archive, resource, tool].sorted())
+        XCTAssertFalse(command.inputFiles.contains(resourceBundle))
+        XCTAssertEqual(command.outputFiles, [finalFile, finalDirectory])
+    }
+
     /// Constructs the same canned package graph used by `testBasics`: a library `Foo` that uses a
     /// build tool plugin `FooPlugin`, which depends on an executable `FooTool`.
     private func makeFooPluginGraph(
