@@ -23,7 +23,7 @@ import Testing
 )
 struct ProductBuilderBuildResultTests {
     @Test(.requiresSwiftConcurrencySupport)
-    func commandPluginReceivesArtifactProductFilesAndDirectories() async throws {
+    func commandPluginReceivesArtifactProductFiles() async throws {
         try await fixture(name: "Miscellaneous/Plugins/CustomProductBuilder") { fixturePath in
             func expectArtifacts(in stdout: String) {
                 #expect(stdout.contains("build-succeeded: true"), "stdout:\n\(stdout)")
@@ -34,7 +34,7 @@ struct ProductBuilderBuildResultTests {
                 #expect(artifactLines.contains { $0.contains("file|") && $0.hasSuffix("/ArtifactFixture.bin") })
                 #expect(artifactLines.contains { $0.contains("file|") && $0.hasSuffix("/ArtifactFixture.uf2") })
                 #expect(artifactLines.contains {
-                    $0.contains("directory|") && $0.hasSuffix("/ArtifactFixture.debug")
+                    $0.contains("file|") && $0.hasSuffix("/ArtifactFixture.debug/metadata.txt")
                 })
                 #expect(artifactLines.allSatisfy {
                     $0.contains("/plugins/outputs/customproductbuilder/ArtifactFixture/destination/")

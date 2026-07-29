@@ -2,17 +2,19 @@
 
 import PackageDescription
 
-// A support module imported by the manifest could provide this typed wrapper.
-// The fixture keeps it local so it only exercises product-builder behavior.
+// This typed convenience is defined directly in the manifest. It lowers the
+// domain-specific spelling to the proposal's low-level artifact primitive.
 extension Product {
     @available(_PackageDescription, introduced: 6.3)
     static func picoUF2(name: String, target: String, board: String) -> Product {
         .artifact(
             name: name,
-            typeIdentifier: "dev.swiftpm.example.pico-uf2",
+            typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
             targets: [target],
-            builderPlugin: "FirmwareBuilder",
-            builderPluginPackage: "RP2350Support",
+            builderPlugin: .pluginItem(
+                name: "FirmwareBuilder",
+                package: "RP2350Support"
+            ),
             arguments: ["--board", board]
         )
     }
@@ -24,11 +26,13 @@ let package = Package(
         .picoUF2(name: "Firmware", target: "FirmwareCore", board: "pico2"),
         .artifact(
             name: "ArtifactFixture",
-            typeIdentifier: "dev.swiftpm.example.pico-uf2",
+            typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
             targets: ["FirmwareCore"],
-            builderPlugin: "FirmwareBuilder",
-            builderPluginPackage: "RP2350Support",
-            arguments: ["--board", "pico2", "--emit-debug-directory"]
+            builderPlugin: .pluginItem(
+                name: "FirmwareBuilder",
+                package: "RP2350Support"
+            ),
+            arguments: ["--board", "pico2", "--emit-debug-metadata"]
         ),
     ],
     dependencies: [

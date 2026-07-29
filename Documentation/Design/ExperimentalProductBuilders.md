@@ -7,11 +7,10 @@ automatic loading of manifest API modules.
 
 ## Intended manifest experience
 
-A definition module should eventually provide a typed API:
+The consuming package defines a typed helper in its manifest:
 
 ```swift
 import PackageDescription
-import RP2350Support
 
 let package = Package(
     name: "FirmwarePackage",
@@ -28,10 +27,6 @@ let package = Package(
 )
 ```
 
-SwiftPM cannot yet resolve and build a dependency for import into a package
-manifest. The prototype can manually inject a prebuilt definition module, or
-the typed wrapper can temporarily be defined in `Package.swift`.
-
 The generic API beneath that typed experience is exposed by the experimental
 PackageDescription 6.3 runtime:
 
@@ -40,10 +35,12 @@ PackageDescription 6.3 runtime:
 
 .artifact(
     name: "Firmware",
-    typeIdentifier: "dev.example.pico-uf2",
+    typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
     targets: ["FirmwareCore"],
-    builderPlugin: "RP2350Builder",
-    builderPluginPackage: "RP2350Support",
+    builderPlugin: .pluginItem(
+        name: "RP2350Builder",
+        package: "RP2350Support"
+    ),
     arguments: ["--board", "pico2"]
 )
 ```
@@ -74,7 +71,7 @@ struct RP2350Builder: ProductBuilderPlugin {
 - the stable type identifier and opaque arguments;
 - the product and target graph;
 - the predicted aggregate static archive URL;
-- exact copied and processed resource URLs and bundle roots;
+- exhaustive copied and processed resource file URLs;
 - the destination triple and configuration; and
 - a builder-owned output directory.
 
@@ -90,30 +87,36 @@ paths.
 ## Swift Build lowering
 
 SwiftPM owns semantic graph resolution and invokes the planning callback. It
-lowers each reachable artifact product to:
+makes the compiled target closure available as an implicit, private aggregate
+archive and adds the returned commands as product-completion work.
 
-1. a hidden standard target that constructs one aggregate static archive; and
-2. a public aggregate finalizer target containing the builder commands as
-   custom tasks.
-
-The finalizer depends on the archive, resource bundles, builder plug-in target,
-and its host tools. Swift Build owns command scheduling, signatures, recursive
-directory tracking, missing-output detection, and target completion.
+Swift Build orders the commands after the archive, resource-copy targets,
+builder plug-in target, and host tools. It owns command scheduling, signatures,
+missing-output detection, and target completion.
 
 ```text
-Swift/C/C++ targets ──> hidden static archive ──┐
-                                                ├──> builder tasks
-processed resources ────────────────────────────┤         |
-host tools ─────────────────────────────────────┘         v
-                                                  final artifacts
+Swift/C/C++ targets ──> implicit private archive ──┐
+                                                   ├──> builder tasks
+resource-copy completion ──────────────────────────┤         |
+host tools ────────────────────────────────────────┘         v
+                                                     output files
 ```
 
-An unchanged second build is null. Source-derived archive changes, nested
-resource changes, manifest arguments, command signatures, or host-tool changes
-rerun the producer. Removing a declared file or directory output also reruns it.
+The plug-in API exposes exhaustive resource file paths, and all builder outputs
+are files. Builders create parent directories beneath their owned output
+directory. The aggregate finalizer depends on the targets that copy the resource
+bundles, which orders its tasks after resource processing. The PIF adapter adds
+the original resource files to each task signature so nested changes invalidate
+the finalizer without treating a directory as a custom-task input. This does
+not require directory fields in the custom-task PIF model or expose directories
+to the plug-in.
 
-`swift build --product Firmware` selects the finalizer. Build result reporting
-returns the declared final files and directories and omits the hidden archive.
+An unchanged second build is null. Source-derived archive changes,
+resource-file changes, manifest arguments, command signatures, or host-tool
+changes rerun the producer. Removing a declared output file also reruns it.
+
+`swift build --product Firmware` selects the product-completion work. The
+implicit archive is not separately named, selected, or vended.
 
 ## Version-one linkage boundary
 
@@ -128,6 +131,11 @@ The supported input is one aggregate static archive:
 SwiftPM diagnoses closures with system-library targets, dynamic-library
 products, binary libraries, explicit linked libraries or frameworks, or target
 linker flags. Those require a richer future model of linkable inputs.
+
+The implicit archive is the prototype's ergonomic default: it avoids requiring
+package authors to vend and name an intermediate static-library product. An
+alternative under discussion is allowing builders to consume explicit library
+or executable products, or advanced per-target object-file inputs.
 
 Only the Swift Build backend supports artifact product execution. The native
 and Xcode backends emit an unsupported diagnostic.

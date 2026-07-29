@@ -11,8 +11,10 @@ struct FirmwareBuilder: ProductBuilderPlugin {
         let elf = input.outputDirectoryURL.appendingPathComponent("\(input.product.name).elf")
         let bin = input.outputDirectoryURL.appendingPathComponent("\(input.product.name).bin")
         let uf2 = input.outputDirectoryURL.appendingPathComponent("\(input.product.name).uf2")
-        let emitsDebugDirectory = input.arguments.contains("--emit-debug-directory")
-        let debugDirectory = input.outputDirectoryURL.appendingPathComponent("\(input.product.name).debug")
+        let emitsDebugMetadata = input.arguments.contains("--emit-debug-metadata")
+        let debugMetadata = input.outputDirectoryURL
+            .appendingPathComponent("\(input.product.name).debug")
+            .appendingPathComponent("metadata.txt")
 
         var arguments = [
             "--archive", input.aggregateStaticLibraryURL.path,
@@ -27,11 +29,11 @@ struct FirmwareBuilder: ProductBuilderPlugin {
             arguments += ["--resource", resource.path]
         }
         arguments += input.arguments
-        if emitsDebugDirectory {
-            arguments += ["--debug-directory", debugDirectory.path]
+        if emitsDebugMetadata {
+            arguments += ["--debug-metadata", debugMetadata.path]
         }
 
-        let commandOutputs = [elf, bin, uf2] + (emitsDebugDirectory ? [debugDirectory] : [])
+        let commandOutputs = [elf, bin, uf2] + (emitsDebugMetadata ? [debugMetadata] : [])
 
         return ProductBuilderPlan(
             commands: [
@@ -43,8 +45,7 @@ struct FirmwareBuilder: ProductBuilderPlugin {
                     outputFiles: commandOutputs
                 ),
             ],
-            outputFiles: [elf, bin, uf2],
-            outputDirectories: emitsDebugDirectory ? [debugDirectory] : []
+            outputFiles: commandOutputs
         )
     }
 }

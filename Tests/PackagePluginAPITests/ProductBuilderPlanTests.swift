@@ -115,7 +115,9 @@ final class ProductBuilderPlanTests: XCTestCase {
     }
 
     func testRejectsInPlaceMutation() throws {
-        let output = self.outputDirectory.appendingPathComponent("Firmware.app")
+        let output = self.outputDirectory
+            .appendingPathComponent("Firmware.app")
+            .appendingPathComponent("Firmware")
         let plan = ProductBuilderPlan(
             commands: [
                 .buildCommand(
@@ -126,7 +128,7 @@ final class ProductBuilderPlanTests: XCTestCase {
                     outputFiles: [output]
                 ),
             ],
-            outputDirectories: [output]
+            outputFiles: [output]
         )
 
         XCTAssertThrowsError(try plan.validate(outputDirectory: self.outputDirectory)) { error in
@@ -291,29 +293,6 @@ final class ProductBuilderPlanTests: XCTestCase {
                 ),
             ],
             outputFiles: [output, output]
-        )
-
-        XCTAssertThrowsError(try plan.validate(outputDirectory: self.outputDirectory)) { error in
-            guard case ProductBuilderPlanValidationError.duplicateFinalOutput(let duplicate) = error else {
-                return XCTFail("unexpected error: \(error)")
-            }
-            XCTAssertEqual(duplicate, output.standardized)
-        }
-    }
-
-    func testRejectsDuplicateFinalOutputAcrossFilesAndDirectories() throws {
-        let output = self.outputDirectory.appendingPathComponent("firmware")
-        let plan = ProductBuilderPlan(
-            commands: [
-                .buildCommand(
-                    displayName: nil,
-                    executable: self.executable,
-                    arguments: [],
-                    outputFiles: [output]
-                ),
-            ],
-            outputFiles: [output],
-            outputDirectories: [output]
         )
 
         XCTAssertThrowsError(try plan.validate(outputDirectory: self.outputDirectory)) { error in

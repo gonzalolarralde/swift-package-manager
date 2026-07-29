@@ -52,7 +52,7 @@ struct ProductBuilderResolutionTests {
                             type: .library(.static),
                             targets: ["FirmwareCore"],
                             customProduct: .init(
-                                typeIdentifier: "dev.example.pico-uf2",
+                                typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
                                 builderPlugin: "RP2350Builder",
                                 builderPluginPackage: "BoardSupport"
                             )
@@ -108,7 +108,7 @@ struct ProductBuilderResolutionTests {
                             type: .library(.static),
                             targets: ["FirmwareCore"],
                             customProduct: .init(
-                                typeIdentifier: "dev.example.pico-uf2",
+                                typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
                                 builderPlugin: "FirmwareBuilder"
                             )
                         ),
@@ -153,7 +153,7 @@ struct ProductBuilderResolutionTests {
                             type: .library(.static),
                             targets: ["FirmwareCore"],
                             customProduct: .init(
-                                typeIdentifier: "dev.example.pico-uf2",
+                                typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
                                 builderPlugin: "FirmwareBuilder",
                                 builderPluginPackage: "MissingSupport"
                             )
@@ -208,7 +208,7 @@ struct ProductBuilderResolutionTests {
                             type: .library(.static),
                             targets: ["FirmwareCore"],
                             customProduct: .init(
-                                typeIdentifier: "dev.example.pico-uf2",
+                                typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
                                 builderPlugin: "FirmwareBuilder",
                                 builderPluginPackage: "BoardSupport"
                             )
@@ -264,7 +264,7 @@ struct ProductBuilderResolutionTests {
                             type: .library(.static),
                             targets: ["FirmwareCore"],
                             customProduct: .init(
-                                typeIdentifier: "dev.example.pico-uf2",
+                                typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
                                 builderPlugin: "MissingBuilder",
                                 builderPluginPackage: "BoardSupport"
                             )
@@ -310,7 +310,7 @@ struct ProductBuilderResolutionTests {
                             type: .library(.static),
                             targets: ["FirmwareCore"],
                             customProduct: .init(
-                                typeIdentifier: "dev.example.pico-uf2",
+                                typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
                                 builderPlugin: "FirmwareBuilder"
                             )
                         ),

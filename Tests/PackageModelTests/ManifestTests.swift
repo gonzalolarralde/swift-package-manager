@@ -71,7 +71,7 @@ class ManifestTests: XCTestCase {
             type: .library(.static),
             targets: ["FirmwareCore"],
             customProduct: .init(
-                typeIdentifier: "dev.example.pico-u2f",
+                typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
                 builderPlugin: "BuilderProduct"
             )
         )
@@ -80,7 +80,7 @@ class ManifestTests: XCTestCase {
             type: .library(.static),
             targets: ["FirmwareCore"],
             customProduct: .init(
-                typeIdentifier: "dev.example.pico-u2f",
+                typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
                 builderPlugin: "BuilderPlugin"
             )
         )
@@ -227,7 +227,7 @@ class ManifestTests: XCTestCase {
             type: .library(.static),
             targets: ["FirmwareCore"],
             customProduct: .init(
-                typeIdentifier: "dev.example.pico-u2f",
+                typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
                 builderPlugin: "RP2350Builder",
                 builderPluginPackage: "RP2350Support"
             )

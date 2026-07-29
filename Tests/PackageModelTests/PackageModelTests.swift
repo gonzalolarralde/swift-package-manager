@@ -51,7 +51,7 @@ final class PackageModelTests: XCTestCase {
             type: .library(.static),
             targets: ["FirmwareCore"],
             customProduct: .init(
-                typeIdentifier: "com.example.picou2f",
+                typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
                 builderPlugin: "RP2350Builder",
                 builderPluginPackage: "RP2350Support",
                 arguments: ["--family", "rp2350"]

@@ -576,10 +576,12 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 products: [
                     .artifact(
                         name: "Firmware",
-                        typeIdentifier: "dev.example.pico-uf2",
+                        typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
                         targets: ["FirmwareCore"],
-                        builderPlugin: "FirmwareBuilder",
-                        builderPluginPackage: "RP2350Support",
+                        builderPlugin: .pluginItem(
+                            name: "FirmwareBuilder",
+                            package: "RP2350Support"
+                        ),
                         arguments: ["--board", "pico2"]
                     )
                 ],
@@ -593,8 +595,12 @@ final class ManifestSourceGenerationTests: XCTestCase {
         )
         XCTAssertTrue(generated.contains(";(experimentalProductBuilders)"), "contents: \(generated)")
         XCTAssertTrue(generated.contains(".artifact("), "contents: \(generated)")
-        XCTAssertTrue(generated.contains("typeIdentifier: \"dev.example.pico-uf2\""), "contents: \(generated)")
-        XCTAssertTrue(generated.contains("builderPluginPackage: \"RP2350Support\""), "contents: \(generated)")
+        XCTAssertTrue(
+            generated.contains(
+                "builderPlugin: .pluginItem(name: \"FirmwareBuilder\", package: \"RP2350Support\")"
+            ),
+            "contents: \(generated)"
+        )
         XCTAssertTrue(generated.contains("arguments: [\"--board\", \"pico2\"]"), "contents: \(generated)")
     }
 

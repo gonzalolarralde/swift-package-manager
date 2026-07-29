@@ -70,8 +70,11 @@ for (index, outputPath) in outputPaths.enumerated() {
     try data.write(to: outputURL)
 }
 
-if arguments.contains("--emit-debug-directory") {
-    let debugDirectory = URL(fileURLWithPath: try value(after: "--debug-directory"))
-    try FileManager.default.createDirectory(at: debugDirectory, withIntermediateDirectories: true)
-    try Data(metadata.utf8).write(to: debugDirectory.appendingPathComponent("metadata.txt"))
+if arguments.contains("--emit-debug-metadata") {
+    let debugMetadata = URL(fileURLWithPath: try value(after: "--debug-metadata"))
+    try FileManager.default.createDirectory(
+        at: debugMetadata.deletingLastPathComponent(),
+        withIntermediateDirectories: true
+    )
+    try Data(metadata.utf8).write(to: debugMetadata)
 }

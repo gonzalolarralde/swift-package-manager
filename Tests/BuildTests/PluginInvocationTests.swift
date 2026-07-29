@@ -279,7 +279,7 @@ final class PluginInvocationTests: XCTestCase {
         )
         let observability = ObservabilitySystem.makeForTesting()
         let descriptor = ProductDescription.CustomProduct(
-            typeIdentifier: "com.example.picou2f",
+            typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
             builderPlugin: "FirmwareBuilder",
             arguments: ["--family", "rp2350"]
         )
@@ -320,21 +320,19 @@ final class PluginInvocationTests: XCTestCase {
 
         let archive = AbsolutePath("/Firmware/.build/FirmwareCore.a")
         let resource = AbsolutePath("/Firmware/.build/resources/config.json")
-        let resourceBundle = AbsolutePath("/Firmware/.build/Firmware_FirmwareCore.bundle")
         let pluginOutputDirectory = AbsolutePath("/Firmware/.build/plugins/FirmwareBuilder")
         let productOutputDirectory = pluginOutputDirectory.appending("outputs")
         let finalFile = productOutputDirectory.appending("Firmware.uf2")
-        let finalDirectory = productOutputDirectory.appending("Firmware.dSYM")
+        let finalMetadata = productOutputDirectory.appending(components: "Firmware.dSYM", "metadata.json")
         let tool = AbsolutePath("/tools/uf2gen")
 
         struct MockPluginScriptRunner: PluginScriptRunner {
             let expectedTypeIdentifier: String
             let expectedArchive: AbsolutePath
             let expectedResource: AbsolutePath
-            let expectedResourceBundle: AbsolutePath
             let expectedOutputDirectory: AbsolutePath
             let finalFile: AbsolutePath
-            let finalDirectory: AbsolutePath
+            let finalMetadata: AbsolutePath
             let tool: AbsolutePath
 
             var hostTriple: Triple {
@@ -390,7 +388,6 @@ final class PluginInvocationTests: XCTestCase {
                     typeIdentifier,
                     aggregateStaticLibraryId,
                     resourceIds,
-                    resourceBundleIds,
                     arguments,
                     outputDirectoryId,
                     buildConfiguration,
@@ -417,7 +414,6 @@ final class PluginInvocationTests: XCTestCase {
                 XCTAssertEqual(typeIdentifier, self.expectedTypeIdentifier)
                 XCTAssertEqual(try url(for: aggregateStaticLibraryId).filePath, self.expectedArchive)
                 XCTAssertEqual(try resourceIds.map { try url(for: $0).filePath }, [self.expectedResource])
-                XCTAssertEqual(try resourceBundleIds.map { try url(for: $0).filePath }, [self.expectedResourceBundle])
                 XCTAssertEqual(arguments, ["--family", "rp2350"])
                 XCTAssertEqual(try url(for: outputDirectoryId).filePath, self.expectedOutputDirectory)
                 XCTAssertEqual(buildConfiguration, "release")
@@ -432,14 +428,13 @@ final class PluginInvocationTests: XCTestCase {
                         workingDirectory: nil
                     ),
                     inputFiles: [],
-                    outputFiles: [self.finalFile.asURL, self.finalDirectory.asURL]
+                    outputFiles: [self.finalFile.asURL, self.finalMetadata.asURL]
                 )
                 _ = try await delegate.handleMessage(
                     data: JSONEncoder.makeWithDefaults().encode(buildCommand)
                 )
                 let finalOutputs = PluginToHostMessage.defineProductBuildPlan(
-                    outputFiles: [self.finalFile.asURL],
-                    outputDirectories: [self.finalDirectory.asURL]
+                    outputFiles: [self.finalFile.asURL, self.finalMetadata.asURL]
                 )
                 _ = try await delegate.handleMessage(
                     data: JSONEncoder.makeWithDefaults().encode(finalOutputs)
@@ -454,7 +449,6 @@ final class PluginInvocationTests: XCTestCase {
             typeIdentifier: descriptor.typeIdentifier,
             aggregateStaticLibrary: archive,
             resourceFiles: [resource],
-            resourceBundles: [resourceBundle],
             arguments: descriptor.arguments,
             productOutputDirectory: productOutputDirectory,
             buildConfiguration: "release",
@@ -465,10 +459,9 @@ final class PluginInvocationTests: XCTestCase {
                 expectedTypeIdentifier: descriptor.typeIdentifier,
                 expectedArchive: archive,
                 expectedResource: resource,
-                expectedResourceBundle: resourceBundle,
                 expectedOutputDirectory: productOutputDirectory,
                 finalFile: finalFile,
-                finalDirectory: finalDirectory,
+                finalMetadata: finalMetadata,
                 tool: tool
             ),
             workingDirectory: "/Firmware",
@@ -487,14 +480,12 @@ final class PluginInvocationTests: XCTestCase {
 
         XCTAssertTrue(result.succeeded, "\(result.diagnostics)")
         XCTAssertEqual(result.product.id, product.id)
-        XCTAssertEqual(result.outputFiles, [finalFile])
-        XCTAssertEqual(result.outputDirectories, [finalDirectory])
+        XCTAssertEqual(result.outputFiles, [finalFile, finalMetadata])
         XCTAssertTrue(fileSystem.isDirectory(productOutputDirectory))
         let command = try XCTUnwrap(result.buildCommands.first)
         XCTAssertEqual(command.configuration.displayName, "Create UF2")
         XCTAssertEqual(command.inputFiles, [archive, resource, tool].sorted())
-        XCTAssertFalse(command.inputFiles.contains(resourceBundle))
-        XCTAssertEqual(command.outputFiles, [finalFile, finalDirectory])
+        XCTAssertEqual(command.outputFiles, [finalFile, finalMetadata])
     }
 
     /// Constructs the same canned package graph used by `testBasics`: a library `Foo` that uses a

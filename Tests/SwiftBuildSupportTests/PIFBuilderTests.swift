@@ -761,19 +761,21 @@ struct PIFBuilderTests {
                 let name = URL(fileURLWithPath: $0).lastPathComponent
                 return name.hasPrefix("libFirmware") && name.hasSuffix(".a")
             }, "input files: \(task.inputFilePaths)")
-            #expect(task.inputDirectoryPaths.contains {
-                $0.hasSuffix(
-                    "/CustomProductBuilder_FirmwareCore.bundle/Contents/Resources/Assets"
-                )
+            #expect(!task.inputFilePaths.contains {
+                $0.hasSuffix("/CustomProductBuilder_FirmwareCore.bundle")
             })
-            #expect(task.inputFilePaths.contains { $0.hasSuffix("/Contents/Resources/board.txt") })
-            #expect(task.inputFilePaths.contains { $0.hasSuffix("/Contents/Resources/config.json") })
+            #expect(!task.inputFilePaths.contains {
+                $0.contains(".bundle/") && $0.hasSuffix("/Assets/Nested/asset.txt")
+            })
+            #expect(!task.inputFilePaths.contains { $0.hasSuffix("/Contents/Info.plist") })
+            #expect(task.inputFilePaths.contains {
+                $0.hasSuffix("/Sources/FirmwareCore/Assets/Nested/asset.txt")
+            })
             #expect(Set(task.outputFilePaths.map(URL.init(fileURLWithPath:)).map(\.lastPathComponent)) == [
                 "Firmware.elf",
                 "Firmware.bin",
                 "Firmware.uf2",
             ])
-            #expect(task.outputDirectoryPaths.isEmpty)
 
             let aggregateProject = try pif.workspace.project(named: "Aggregate")
             let allProducts = try aggregateProject.target(named: PIFBuilder.allExcludingTestsTargetName)
@@ -800,7 +802,7 @@ struct PIFBuilderTests {
                             type: .library(.static),
                             targets: ["FirmwareCore"],
                             customProduct: .init(
-                                typeIdentifier: "dev.example.firmware",
+                                typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
                                 builderPlugin: "FirmwareBuilder"
                             )
                         ),

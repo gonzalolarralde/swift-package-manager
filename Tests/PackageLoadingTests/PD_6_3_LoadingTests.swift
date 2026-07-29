@@ -31,10 +31,12 @@ struct PackageDescription6_3LoadingTests {
                 products: [
                     .artifact(
                         name: "Firmware",
-                        typeIdentifier: "com.example.picou2f",
+                        typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
                         targets: ["FirmwareCore"],
-                        builderPlugin: "RP2350Builder",
-                        builderPluginPackage: "RP2350Support",
+                        builderPlugin: .pluginItem(
+                            name: "RP2350Builder",
+                            package: "RP2350Support"
+                        ),
                         arguments: ["--family", "rp2350"]
                     )
                 ],
@@ -65,7 +67,7 @@ struct PackageDescription6_3LoadingTests {
         #expect(product.type == .library(.static))
         #expect(product.targets == ["FirmwareCore"])
         #expect(product.customProduct == .init(
-            typeIdentifier: "com.example.picou2f",
+            typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
             builderPlugin: "RP2350Builder",
             builderPluginPackage: "RP2350Support",
             arguments: ["--family", "rp2350"]
@@ -85,7 +87,7 @@ struct PackageDescription6_3LoadingTests {
                 products: [
                     .artifact(
                         name: "Firmware",
-                        typeIdentifier: "com.example.picou2f",
+                        typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
                         targets: ["FirmwareCore"],
                         builderPlugin: "FirmwareBuilder"
                     )

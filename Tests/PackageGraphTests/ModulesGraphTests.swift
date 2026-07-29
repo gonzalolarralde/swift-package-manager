@@ -1688,7 +1688,7 @@ struct ModulesGraphTests {
                                 type: .library(.static),
                                 targets: ["FirmwareCore"],
                                 customProduct: .init(
-                                    typeIdentifier: "example.firmware",
+                                    typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
                                     builderPlugin: "FirmwareBuilder"
                                 )
                             ),

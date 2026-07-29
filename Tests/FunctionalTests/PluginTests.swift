@@ -59,7 +59,7 @@ struct PluginTests {
             #expect(Set(outputs.map(\.basename)) == ["Firmware.elf", "Firmware.bin", "Firmware.uf2"])
             let uf2 = try #require(outputs.first(where: { $0.basename == "Firmware.uf2" }))
             let uf2Contents: String = try localFileSystem.readFileContents(uf2)
-            #expect(uf2Contents.contains("type=dev.swiftpm.example.pico-uf2"))
+            #expect(uf2Contents.contains("type=pkg:swift/github.com/example/RP2350Support"))
             #expect(uf2Contents.contains("copied-board-resource"))
             #expect(uf2Contents.contains("nested-asset-v1"))
             #expect(uf2Contents.contains("\"configuration\": \"fixture-v1\""))
