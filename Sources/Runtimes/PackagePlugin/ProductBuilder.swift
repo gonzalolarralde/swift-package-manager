@@ -27,11 +27,8 @@ public struct ProductBuilderInput {
     /// target dependencies. The archive is produced before builder commands run.
     public let aggregateStaticLibraryURL: URL
 
-    /// The exact destination URLs of copied and processed resources.
+    /// The exhaustive destination URLs of copied and processed resource files.
     public let resourceURLs: [URL]
-
-    /// The destination URLs of resource bundles associated with the product's targets.
-    public let resourceBundleURLs: [URL]
 
     /// Opaque arguments from the artifact product declaration.
     public let arguments: [String]
@@ -51,7 +48,6 @@ public struct ProductBuilderInput {
         typeIdentifier: String,
         aggregateStaticLibraryURL: URL,
         resourceURLs: [URL],
-        resourceBundleURLs: [URL],
         arguments: [String],
         outputDirectoryURL: URL,
         buildConfiguration: String,
@@ -61,7 +57,6 @@ public struct ProductBuilderInput {
         self.typeIdentifier = typeIdentifier
         self.aggregateStaticLibraryURL = aggregateStaticLibraryURL
         self.resourceURLs = resourceURLs
-        self.resourceBundleURLs = resourceBundleURLs
         self.arguments = arguments
         self.outputDirectoryURL = outputDirectoryURL
         self.buildConfiguration = buildConfiguration
@@ -79,20 +74,15 @@ public struct ProductBuilderPlan {
     /// Product builders cannot use prebuild commands.
     public let commands: [Command]
 
-    /// Command outputs that are final file artifacts of the product.
+    /// The exhaustive file outputs required to complete the product.
     public let outputFiles: [URL]
-
-    /// Command outputs that are final directory artifacts of the product.
-    public let outputDirectories: [URL]
 
     public init(
         commands: [Command],
-        outputFiles: [URL] = [],
-        outputDirectories: [URL] = []
+        outputFiles: [URL] = []
     ) {
         self.commands = commands
         self.outputFiles = outputFiles
-        self.outputDirectories = outputDirectories
     }
 }
 
@@ -171,7 +161,7 @@ extension ProductBuilderPlan {
             }
         }
 
-        let finalOutputs = (self.outputFiles + self.outputDirectories).map(\.standardized)
+        let finalOutputs = self.outputFiles.map(\.standardized)
         guard !finalOutputs.isEmpty else {
             throw ProductBuilderPlanValidationError.noFinalOutputs
         }

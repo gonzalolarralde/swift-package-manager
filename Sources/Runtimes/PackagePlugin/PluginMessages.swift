@@ -32,7 +32,6 @@ enum HostToPluginMessage: Codable {
         typeIdentifier: String,
         aggregateStaticLibraryId: InputContext.URL.Id,
         resourceIds: [InputContext.URL.Id],
-        resourceBundleIds: [InputContext.URL.Id],
         arguments: [String],
         outputDirectoryId: InputContext.URL.Id,
         buildConfiguration: String,
@@ -361,8 +360,8 @@ enum PluginToHostMessage: Codable {
     /// The plugin defines a prebuild command.
     case definePrebuildCommand(configuration: CommandConfiguration, outputFilesDirectory: URL)
 
-    /// The plugin identifies which command outputs are the final product artifacts.
-    case defineProductBuildPlan(outputFiles: [URL], outputDirectories: [URL])
+    /// The plugin identifies which command outputs complete the product.
+    case defineProductBuildPlan(outputFiles: [URL])
     
         struct CommandConfiguration: Codable {
             var version = 2

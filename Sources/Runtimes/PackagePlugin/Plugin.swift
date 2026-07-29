@@ -243,7 +243,6 @@ extension Plugin {
             let typeIdentifier,
             let aggregateStaticLibraryId,
             let resourceIds,
-            let resourceBundleIds,
             let arguments,
             let outputDirectoryId,
             let buildConfiguration,
@@ -276,7 +275,6 @@ extension Plugin {
                     typeIdentifier: typeIdentifier,
                     aggregateStaticLibraryURL: try deserializer.url(for: aggregateStaticLibraryId),
                     resourceURLs: try resourceIds.map { try deserializer.url(for: $0) },
-                    resourceBundleURLs: try resourceBundleIds.map { try deserializer.url(for: $0) },
                     arguments: arguments,
                     outputDirectoryURL: try deserializer.url(for: outputDirectoryId),
                     buildConfiguration: buildConfiguration,
@@ -313,10 +311,7 @@ extension Plugin {
                     throw ProductBuilderPlanValidationError.prebuildCommandNotSupported
                 }
             }
-            try pluginHostConnection.sendMessage(.defineProductBuildPlan(
-                outputFiles: plan.outputFiles,
-                outputDirectories: plan.outputDirectories
-            ))
+            try pluginHostConnection.sendMessage(.defineProductBuildPlan(outputFiles: plan.outputFiles))
             exit(0)
 
         case .createXcodeProjectBuildToolCommands(let wireInput, let rootProjectId, let targetId, let generatedSources, let generatedResources):

@@ -833,13 +833,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                                         umbrellaTestProductName: nil
                                     )
                                 })
-                                artifacts?.append(contentsOf: product.outputDirectories.map {
-                                    BuildResult.BuiltArtifact(
-                                        name: product.name,
-                                        artifact: .init(path: $0.pathString, kind: .directory),
-                                        umbrellaTestProductName: nil
-                                    )
-                                })
                             }
                         } else {
                             self.observabilityScope.emit(error: "failed to compute built artifacts list")

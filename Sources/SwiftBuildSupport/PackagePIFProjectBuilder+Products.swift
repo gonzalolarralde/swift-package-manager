@@ -100,7 +100,6 @@ extension PackagePIFProjectBuilder {
             BuildConfig(id: id, name: "Release", settings: buildSettings)
         }
 
-        let finalDirectoryPaths = Set(result.outputDirectories)
         for command in result.buildCommands {
             var commandLine = [
                 command.configuration.executable.pathString
@@ -114,19 +113,16 @@ extension PackagePIFProjectBuilder {
                 )
             }
 
-            let knownInputDirectories = Set(result.inputDirectories)
-            // Product inputs are implicitly added by the host and may also be
-            // named explicitly by the plug-in. Keep one stable PIF path entry
-            // for each semantic input.
-            let commandInputFiles = Array(Set(command.inputFiles)).sorted()
-            let inputDirectoryPaths = commandInputFiles.filter {
-                knownInputDirectories.contains($0) || self.pifBuilder.fileSystem.isDirectory($0)
-            }
-            let inputDirectorySet = Set(inputDirectoryPaths)
-            let outputDirectoryPaths = command.outputFiles.filter {
-                finalDirectoryPaths.contains($0)
-            }
-            let outputDirectorySet = Set(outputDirectoryPaths)
+            // The plug-in sees exhaustive destination resource file URLs.
+            // Resource-bundle target dependencies above order the finalizer
+            // after those files are copied. Use the corresponding source files
+            // in the task signature so nested changes invalidate the command
+            // without treating a directory as a custom-task input.
+            let resourceDestinationFiles = Set(result.resourceDestinationFiles)
+            let commandInputFiles = Array(Set(
+                command.inputFiles.filter { !resourceDestinationFiles.contains($0) }
+                    + result.resourceSourceFiles
+            )).sorted()
             finalizerTarget.common.customTasks.append(
                 ProjectModel.CustomTask(
                     commandLine: commandLine,
@@ -136,14 +132,8 @@ extension PackagePIFProjectBuilder {
                     workingDirectory: command.configuration.workingDirectory?.pathString ?? self.package.path.pathString,
                     executionDescription: command.configuration.displayName
                         ?? "Building artifact product \(product.name)",
-                    inputFilePaths: commandInputFiles
-                        .filter { !inputDirectorySet.contains($0) }
-                        .map(\.pathString),
-                    outputFilePaths: command.outputFiles
-                        .filter { !outputDirectorySet.contains($0) }
-                        .map(\.pathString),
-                    inputDirectoryPaths: inputDirectoryPaths.map(\.pathString),
-                    outputDirectoryPaths: outputDirectoryPaths.map(\.pathString),
+                    inputFilePaths: commandInputFiles.map(\.pathString),
+                    outputFilePaths: command.outputFiles.map(\.pathString),
                     enableSandboxing: false,
                     preparesForIndexing: false
                 )

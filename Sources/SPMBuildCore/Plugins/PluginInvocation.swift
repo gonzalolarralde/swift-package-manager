@@ -36,7 +36,6 @@ public enum PluginAction {
         typeIdentifier: String,
         aggregateStaticLibrary: AbsolutePath,
         resourceFiles: [AbsolutePath],
-        resourceBundles: [AbsolutePath],
         arguments: [String],
         outputDirectory: AbsolutePath,
         buildConfiguration: String,
@@ -173,7 +172,6 @@ extension PluginModule {
                 let typeIdentifier,
                 let aggregateStaticLibrary,
                 let resourceFiles,
-                let resourceBundles,
                 let arguments,
                 let productOutputDirectory,
                 let buildConfiguration,
@@ -185,7 +183,6 @@ extension PluginModule {
                 }
                 let aggregateStaticLibraryId = try serializer.serialize(path: aggregateStaticLibrary)
                 let resourceIds = try resourceFiles.map { try serializer.serialize(path: $0) }
-                let resourceBundleIds = try resourceBundles.map { try serializer.serialize(path: $0) }
                 let productOutputDirectoryId = try serializer.serialize(path: productOutputDirectory)
                 let wireInput = WireInput(
                     paths: serializer.paths,
@@ -205,7 +202,6 @@ extension PluginModule {
                     typeIdentifier: typeIdentifier,
                     aggregateStaticLibraryId: aggregateStaticLibraryId,
                     resourceIds: resourceIds,
-                    resourceBundleIds: resourceBundleIds,
                     arguments: arguments,
                     outputDirectoryId: productOutputDirectoryId,
                     buildConfiguration: buildConfiguration,
@@ -388,11 +384,10 @@ extension PluginModule {
                     }
                     return nil
 
-                case .defineProductBuildPlan(let outputFiles, let outputDirectories):
+                case .defineProductBuildPlan(let outputFiles):
                     try callbackQueue.sync {
                         self.invocationDelegate.pluginDefinedProductBuildPlan(
-                            outputFiles: try outputFiles.map { try $0.filePath },
-                            outputDirectories: try outputDirectories.map { try $0.filePath }
+                            outputFiles: try outputFiles.map { try $0.filePath }
                         )
                     }
                     return nil
@@ -550,7 +545,6 @@ extension PluginModule {
         typeIdentifier: String,
         aggregateStaticLibrary: AbsolutePath,
         resourceFiles: [AbsolutePath],
-        resourceBundles: [AbsolutePath],
         arguments: [String],
         productOutputDirectory: AbsolutePath,
         buildConfiguration: String,
@@ -578,9 +572,8 @@ extension PluginModule {
         }
 
         let delegateQueue = DispatchQueue(label: "product-builder-plugin-invocation")
-        // All commands must wait for the predicted aggregate archive and the exact
-        // copied/processed resource outputs. Bundle roots are metadata only because
-        // they need not have producing LLBuild rules of their own.
+        // All commands must wait for the predicted aggregate archive and the
+        // exhaustive copied/processed resource file outputs.
         let implicitInputs = Array(Set(
             accessibleTools.values.map(\.path) + [aggregateStaticLibrary] + resourceFiles
         )).sorted()
@@ -605,7 +598,6 @@ extension PluginModule {
                     typeIdentifier: typeIdentifier,
                     aggregateStaticLibrary: aggregateStaticLibrary,
                     resourceFiles: resourceFiles,
-                    resourceBundles: resourceBundles,
                     arguments: arguments,
                     outputDirectory: productOutputDirectory,
                     buildConfiguration: buildConfiguration,
@@ -669,9 +661,7 @@ extension PluginModule {
             diagnostics: delegate.diagnostics,
             textOutput: String(decoding: delegate.outputData, as: UTF8.self),
             buildCommands: delegate.buildCommands,
-            inputDirectories: resourceBundles,
-            outputFiles: delegate.productOutputFiles,
-            outputDirectories: delegate.productOutputDirectories
+            outputFiles: delegate.productOutputFiles
         )
     }
 }
@@ -949,17 +939,17 @@ public struct ProductBuilderPluginInvocationResult {
     /// Explicit-input, explicit-output commands to add to the build graph.
     public var buildCommands: [BuildToolPluginInvocationResult.BuildCommand]
 
-    /// Known directory inputs made available to the planning callback.
-    ///
-    /// This preserves path category information even though the predicted
-    /// destination directories do not exist while the callback runs.
-    public var inputDirectories: [AbsolutePath]
-
-    /// Final file artifacts declared by the product builder.
+    /// Exhaustive final files declared by the product builder.
     public var outputFiles: [AbsolutePath]
 
-    /// Final directory artifacts declared by the product builder.
-    public var outputDirectories: [AbsolutePath]
+    /// Destination resource files exposed to the planning callback. SwiftPM
+    /// replaces these with their source files when constructing the Swift Build
+    /// task because resource-target dependencies provide the ordering edge.
+    public var resourceDestinationFiles: [AbsolutePath] = []
+
+    /// Original resource files used to invalidate the finalizer when a copied
+    /// bundle's root node itself does not change as descendants are updated.
+    public var resourceSourceFiles: [AbsolutePath] = []
 }
 
 
@@ -999,8 +989,8 @@ public protocol PluginInvocationDelegate {
     /// Called when a plugin defines a prebuild command through the PackagePlugin APIs.
     func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) -> Bool
 
-    /// Called once when a product builder identifies its final artifacts.
-    func pluginDefinedProductBuildPlan(outputFiles: [AbsolutePath], outputDirectories: [AbsolutePath])
+    /// Called once when a product builder identifies its final outputs.
+    func pluginDefinedProductBuildPlan(outputFiles: [AbsolutePath])
 
     /// Called when a plugin requests a build operation through the PackagePlugin APIs.
     func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters) async throws -> PluginInvocationBuildResult
@@ -1022,7 +1012,6 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
     var buildCommands = [BuildToolPluginInvocationResult.BuildCommand]()
     var prebuildCommands = [BuildToolPluginInvocationResult.PrebuildCommand]()
     var productOutputFiles = [AbsolutePath]()
-    var productOutputDirectories = [AbsolutePath]()
     var productBuildPlanCount = 0
 
     package init(
@@ -1110,14 +1099,10 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
         return true
     }
 
-    func pluginDefinedProductBuildPlan(
-        outputFiles: [AbsolutePath],
-        outputDirectories: [AbsolutePath]
-    ) {
+    func pluginDefinedProductBuildPlan(outputFiles: [AbsolutePath]) {
         dispatchPrecondition(condition: .onQueue(self.delegateQueue))
         self.productBuildPlanCount += 1
         self.productOutputFiles.append(contentsOf: outputFiles)
-        self.productOutputDirectories.append(contentsOf: outputDirectories)
     }
 
     func validateProductBuildPlan(outputDirectory: AbsolutePath) -> String? {
@@ -1148,7 +1133,7 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
             }
         }
 
-        let finalOutputs = self.productOutputFiles + self.productOutputDirectories
+        let finalOutputs = self.productOutputFiles
         guard !finalOutputs.isEmpty else {
             return "product builder plugin must declare at least one final output"
         }
@@ -1286,7 +1271,7 @@ public extension PluginInvocationDelegate {
     func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) -> Bool {
         return true
     }
-    func pluginDefinedProductBuildPlan(outputFiles: [AbsolutePath], outputDirectories: [AbsolutePath]) {
+    func pluginDefinedProductBuildPlan(outputFiles: [AbsolutePath]) {
     }
     func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters) async throws -> PluginInvocationBuildResult {
         throw StringError("unimplemented")

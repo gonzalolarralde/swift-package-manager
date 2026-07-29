@@ -276,14 +276,22 @@ fileprivate extension SourceCodeFragment {
                     string: customProduct.typeIdentifier
                 ))
                 params.append(SourceCodeFragment(key: "targets", strings: product.targets))
-                params.append(SourceCodeFragment(
-                    key: "builderPlugin",
-                    string: customProduct.builderPlugin
-                ))
                 if let builderPluginPackage = customProduct.builderPluginPackage {
                     params.append(SourceCodeFragment(
-                        key: "builderPluginPackage",
-                        string: builderPluginPackage
+                        key: "builderPlugin",
+                        subnode: SourceCodeFragment(
+                            enum: "pluginItem",
+                            subnodes: [
+                                SourceCodeFragment(key: "name", string: customProduct.builderPlugin),
+                                SourceCodeFragment(key: "package", string: builderPluginPackage),
+                            ],
+                            multiline: false
+                        )
+                    ))
+                } else {
+                    params.append(SourceCodeFragment(
+                        key: "builderPlugin",
+                        string: customProduct.builderPlugin
                     ))
                 }
                 if !customProduct.arguments.isEmpty {

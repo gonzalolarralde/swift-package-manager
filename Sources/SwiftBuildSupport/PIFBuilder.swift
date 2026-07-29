@@ -31,7 +31,6 @@ public struct PIFGenerationResult {
         public let finalizerTargetGUID: String
         public let archiveTargetGUID: String
         public let outputFiles: [AbsolutePath]
-        public let outputDirectories: [AbsolutePath]
     }
 
     public var pif: String
@@ -327,10 +326,12 @@ public final class PIFBuilder {
         package: ResolvedPackage,
         product: ResolvedProduct,
         buildParameters: BuildParameters
-    ) throws -> (files: [AbsolutePath], directories: [AbsolutePath], bundles: [AbsolutePath]) {
+    ) throws -> (
+        files: [AbsolutePath],
+        sourceFiles: [AbsolutePath]
+    ) {
         var files = Set<AbsolutePath>()
-        var directories = Set<AbsolutePath>()
-        var bundles = Set<AbsolutePath>()
+        var sourceFiles = Set<AbsolutePath>()
 
         for module in try product.recursiveModuleDependencies() where module.resources.hasContent {
             let resourcePackageName = self.graph.package(for: module)?.name ?? package.name
@@ -338,27 +339,38 @@ public final class PIFBuilder {
             let bundle = self.parameters.destinationBuildProductsPath.appending(
                 component: "\(bundleName).bundle"
             )
-            bundles.insert(bundle)
             // Swift Build uses the platform's normal bundle layout. macOS
             // resource bundles are deep, while the other supported
             // destinations use a flat resource-bundle layout.
             let resourcesRoot = buildParameters.triple.isMacOSX
                 ? bundle.appending(components: "Contents", "Resources")
                 : bundle
+            let infoPlist = buildParameters.triple.isMacOSX
+                ? bundle.appending(components: "Contents", "Info.plist")
+                : bundle.appending("Info.plist")
+            files.insert(infoPlist)
             for resource in module.resources {
                 switch resource.rule {
                 case .copy, .process:
                     let destination = try resourcesRoot.appending(resource.destination)
-                    files.insert(destination)
                     if self.fileSystem.isDirectory(resource.path) {
-                        directories.insert(destination)
+                        try self.fileSystem.enumerate(directory: resource.path) { source in
+                            guard self.fileSystem.isFile(source) else {
+                                return
+                            }
+                            sourceFiles.insert(source)
+                            files.insert(destination.appending(source.relative(to: resource.path)))
+                        }
+                    } else {
+                        sourceFiles.insert(resource.path)
+                        files.insert(destination)
                     }
                 case .embedInCode:
                     break
                 }
             }
         }
-        return (files.sorted(), directories.sorted(), bundles.sorted())
+        return (files.sorted(), sourceFiles.sorted())
     }
 
     private func invokeProductBuilder(
@@ -406,7 +418,6 @@ public final class PIFBuilder {
             typeIdentifier: artifactProduct.typeIdentifier,
             aggregateStaticLibrary: aggregateArchive,
             resourceFiles: resources.files,
-            resourceBundles: resources.bundles,
             arguments: artifactProduct.arguments,
             productOutputDirectory: productOutputDirectory,
             buildConfiguration: buildParameters.configuration.dirname,
@@ -427,7 +438,8 @@ public final class PIFBuilder {
             modulesGraph: self.graph,
             observabilityScope: self.observabilityScope
         )
-        result.inputDirectories.append(contentsOf: resources.directories)
+        result.resourceDestinationFiles = resources.files
+        result.resourceSourceFiles = resources.sourceFiles
 
         let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter {
             var metadata = ObservabilityMetadata()
@@ -753,8 +765,7 @@ public final class PIFBuilder {
                             name: product.name,
                             finalizerTargetGUID: product.pifTargetGUID.value,
                             archiveTargetGUID: "\(product.pifTargetGUID.value):ARTIFACT-ARCHIVE",
-                            outputFiles: result.outputFiles,
-                            outputDirectories: result.outputDirectories
+                            outputFiles: result.outputFiles
                         )
                     )
                 }

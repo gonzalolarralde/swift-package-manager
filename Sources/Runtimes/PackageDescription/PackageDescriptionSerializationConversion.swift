@@ -401,8 +401,8 @@ extension Serialization.Product {
         self.productType = .library(type: .static)
         self.customProduct = .init(
             typeIdentifier: artifact.typeIdentifier,
-            builderPlugin: artifact.builderPlugin,
-            builderPluginPackage: artifact.builderPluginPackage,
+            builderPlugin: artifact.builderPlugin.name,
+            builderPluginPackage: artifact.builderPlugin.package,
             arguments: artifact.arguments
         )
         #if ENABLE_APPLE_PRODUCT_TYPES
