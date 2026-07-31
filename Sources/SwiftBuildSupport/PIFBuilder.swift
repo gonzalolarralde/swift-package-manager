@@ -26,8 +26,16 @@ import var TSCBasic.stdoutStream
 import enum SwiftBuild.ProjectModel
 
 public struct PIFGenerationResult {
+    public struct ArtifactProduct {
+        public let name: String
+        public let finalizerTargetGUID: String
+        public let archiveTargetGUID: String
+        public let outputFiles: [AbsolutePath]
+    }
+
     public var pif: String
     public var accompanyingMetadata: [PackagePIFBuilder.ModuleOrProduct]
+    public var artifactProducts: [ArtifactProduct]
 }
 
 fileprivate func memoize<T>(to cache: inout T?, build: () async throws -> T) async rethrows -> T {
@@ -87,11 +95,14 @@ package struct PIFBuilderParameters {
     /// reported by the build system for the host `BuildParameters`.
     let hostBuildProductsPath: AbsolutePath
 
+    /// The directory in which destination products are placed.
+    let destinationBuildProductsPath: AbsolutePath
+
     /// Whether to preserve symbolic links in source file paths instead of resolving them to their
     /// real path.
     let shouldPreserveSymlinks: Bool
 
-    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRpaths: PackagePIFBuilder.AddLocalRpaths, hostBuildProductsPath: AbsolutePath, shouldPreserveSymlinks: Bool) {
+    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRpaths: PackagePIFBuilder.AddLocalRpaths, hostBuildProductsPath: AbsolutePath, destinationBuildProductsPath: AbsolutePath? = nil, shouldPreserveSymlinks: Bool) {
         self.isPackageAccessModifierSupported = isPackageAccessModifierSupported
         self.enableTestability = enableTestability
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
@@ -106,6 +117,7 @@ package struct PIFBuilderParameters {
         self.additionalFileRules = additionalFileRules
         self.addLocalRpaths = addLocalRpaths
         self.hostBuildProductsPath = hostBuildProductsPath
+        self.destinationBuildProductsPath = destinationBuildProductsPath ?? pluginWorkingDirectory
         self.shouldPreserveSymlinks = shouldPreserveSymlinks
     }
 }
@@ -174,7 +186,9 @@ public final class PIFBuilder {
             encoder.userInfo[.encodeForSwiftBuild] = true
         }
 
-        let (topLevelObject, modulesAndProducts) = try await self.constructPIF(buildParameters: buildParameters)
+        let (topLevelObject, modulesAndProducts, artifactProducts) = try await self.constructPIFWithArtifacts(
+            buildParameters: buildParameters
+        )
 
         // Sign the PIF objects before encoding it for Swift Build.
         try PIF.sign(workspace: topLevelObject.workspace)
@@ -192,10 +206,18 @@ public final class PIFBuilder {
             throw PIFGenerationError.printedPIFManifestGraphviz
         }
 
-        return PIFGenerationResult(pif: pifString, accompanyingMetadata: modulesAndProducts)
+        return PIFGenerationResult(
+            pif: pifString,
+            accompanyingMetadata: modulesAndProducts,
+            artifactProducts: artifactProducts
+        )
     }
 
-    private var cachedPIF: (PIF.TopLevelObject, [PackagePIFBuilder.ModuleOrProduct])?
+    private var cachedPIF: (
+        PIF.TopLevelObject,
+        [PackagePIFBuilder.ModuleOrProduct],
+        [PIFGenerationResult.ArtifactProduct]
+    )?
 
     /// Compute the available build tools, and their destination build path for host for each plugin.
     private func availableBuildPluginTools(
@@ -246,6 +268,201 @@ public final class PIFBuilder {
         return accessibleToolsPerPlugin
     }
 
+    private func validateArtifactProduct(
+        _ product: ResolvedProduct,
+        buildEnvironment: BuildEnvironment
+    ) throws {
+        var dynamicProducts: [ResolvedProduct] = []
+        product.modules.recursivelyTraverseTransitiveLinkageDependencies(
+            includeMacroDependencies: false
+        ) { dependency in
+            if case .product(let dependency, _) = dependency,
+               dependency.type == .library(.dynamic)
+            {
+                dynamicProducts.append(dependency)
+            }
+        }
+        if let dependency = dynamicProducts.first {
+            throw StringError(
+                "artifact product '\(product.name)' depends on dynamic library product "
+                    + "'\(dependency.name)'; product builders currently accept only an aggregate static archive"
+            )
+        }
+
+        let modules = try product.recursiveModuleDependencies()
+        if let module = modules.first(where: { $0.type == .systemModule }) {
+            throw StringError(
+                "artifact product '\(product.name)' depends on system-library target '\(module.name)'; "
+                    + "system libraries cannot be represented in the aggregate archive"
+            )
+        }
+        if let module = modules.first(where: { $0.underlying is BinaryModule }) {
+            throw StringError(
+                "artifact product '\(product.name)' depends on binary target '\(module.name)'; "
+                    + "binary libraries cannot be represented in the aggregate archive"
+            )
+        }
+
+        let linkerDeclarations: [PackageModel.BuildSettings.Declaration] = [
+            .LINK_LIBRARIES,
+            .LINK_FRAMEWORKS,
+            .OTHER_LDFLAGS,
+        ]
+        for module in modules {
+            let settings = PackageModel.BuildSettings.Scope(
+                module.underlying.buildSettings,
+                environment: buildEnvironment
+            )
+            if let declaration = linkerDeclarations.first(where: { !settings.evaluate($0).isEmpty }) {
+                throw StringError(
+                    "artifact product '\(product.name)' includes linker setting '\(declaration.name)' "
+                        + "from target '\(module.name)'; the product builder must own final linkage"
+                )
+            }
+        }
+    }
+
+    private func artifactProductResources(
+        package: ResolvedPackage,
+        product: ResolvedProduct,
+        buildParameters: BuildParameters
+    ) throws -> (
+        files: [AbsolutePath],
+        sourceFiles: [AbsolutePath]
+    ) {
+        var files = Set<AbsolutePath>()
+        var sourceFiles = Set<AbsolutePath>()
+
+        for module in try product.recursiveModuleDependencies() where module.resources.hasContent {
+            let resourcePackageName = self.graph.package(for: module)?.name ?? package.name
+            let bundleName = "\(resourcePackageName)_\(module.name)"
+            let bundle = self.parameters.destinationBuildProductsPath.appending(
+                component: "\(bundleName).bundle"
+            )
+            // Swift Build uses the platform's normal bundle layout. macOS
+            // resource bundles are deep, while the other supported
+            // destinations use a flat resource-bundle layout.
+            let resourcesRoot = buildParameters.triple.isMacOSX
+                ? bundle.appending(components: "Contents", "Resources")
+                : bundle
+            let infoPlist = buildParameters.triple.isMacOSX
+                ? bundle.appending(components: "Contents", "Info.plist")
+                : bundle.appending("Info.plist")
+            files.insert(infoPlist)
+            for resource in module.resources {
+                switch resource.rule {
+                case .copy, .process:
+                    let destination = try resourcesRoot.appending(resource.destination)
+                    if self.fileSystem.isDirectory(resource.path) {
+                        try self.fileSystem.enumerate(directory: resource.path) { source in
+                            guard self.fileSystem.isFile(source) else {
+                                return
+                            }
+                            sourceFiles.insert(source)
+                            files.insert(destination.appending(source.relative(to: resource.path)))
+                        }
+                    } else {
+                        sourceFiles.insert(resource.path)
+                        files.insert(destination)
+                    }
+                case .embedInCode:
+                    break
+                }
+            }
+        }
+        return (files.sorted(), sourceFiles.sorted())
+    }
+
+    private func invokeProductBuilder(
+        package: ResolvedPackage,
+        product: ResolvedProduct,
+        buildParameters: BuildParameters,
+        availablePluginTools: [ResolvedModule.ID: [String: PluginTool]]
+    ) async throws -> ProductBuilderPluginInvocationResult {
+        guard let artifactProduct = product.underlying.customProduct else {
+            throw InternalError("product '\(product.name)' is not an artifact product")
+        }
+        try self.validateArtifactProduct(product, buildEnvironment: buildParameters.buildEnvironment)
+
+        let plugin = try self.graph.productBuilderPlugin(for: product)
+        guard let pluginModule = plugin.underlying as? PluginModule else {
+            throw InternalError("resolved product builder '\(plugin.name)' is not a plug-in module")
+        }
+        guard let accessibleTools = availablePluginTools[plugin.id] else {
+            throw InternalError("no tools were prepared for product builder plug-in '\(plugin.name)'")
+        }
+
+        let pluginOutputDirectory = self.parameters.pluginWorkingDirectory.appending(
+            components: [
+                "outputs",
+                package.identity.description,
+                product.name,
+                buildParameters.destination == .host ? "tools" : "destination",
+                buildParameters.triple.tripleString,
+                buildParameters.configuration.dirname,
+                plugin.name,
+            ]
+        )
+        let productOutputDirectory = pluginOutputDirectory.appending("outputs")
+        let aggregateArchive = try self.parameters.destinationBuildProductsPath.appending(
+            buildParameters.binaryRelativePath(for: product)
+        )
+        let resources = try self.artifactProductResources(
+            package: package,
+            product: product,
+            buildParameters: buildParameters
+        )
+        var result = try await pluginModule.invokeProductBuilder(
+            package: package,
+            product: product,
+            typeIdentifier: artifactProduct.typeIdentifier,
+            aggregateStaticLibrary: aggregateArchive,
+            resourceFiles: resources.files,
+            arguments: artifactProduct.arguments,
+            productOutputDirectory: productOutputDirectory,
+            buildConfiguration: buildParameters.configuration.dirname,
+            targetTriple: buildParameters.triple.tripleString,
+            buildEnvironment: buildParameters.buildEnvironment,
+            workers: buildParameters.workers,
+            scriptRunner: self.parameters.pluginScriptRunner,
+            workingDirectory: package.path,
+            pluginOutputDirectory: pluginOutputDirectory,
+            toolSearchDirectories: [buildParameters.toolchain.swiftCompilerPath.parentDirectory],
+            accessibleTools: accessibleTools,
+            writableDirectories: [pluginOutputDirectory],
+            readOnlyDirectories: [package.path],
+            allowNetworkConnections: [],
+            pkgConfigDirectories: self.parameters.pkgConfigDirectories,
+            sdkRootPath: buildParameters.toolchain.sdkRootPath,
+            fileSystem: self.fileSystem,
+            modulesGraph: self.graph,
+            observabilityScope: self.observabilityScope
+        )
+        result.resourceDestinationFiles = resources.files
+        result.resourceSourceFiles = resources.sourceFiles
+
+        let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter {
+            var metadata = ObservabilityMetadata()
+            metadata.packageIdentity = package.identity
+            metadata.packageKind = package.manifest.packageKind
+            metadata.pluginName = plugin.name
+            return metadata
+        }
+        for line in result.textOutput.split(whereSeparator: { $0.isNewline }) {
+            diagnosticsEmitter.emit(info: line)
+        }
+        for diagnostic in result.diagnostics {
+            diagnosticsEmitter.emit(diagnostic)
+        }
+        guard result.succeeded else {
+            throw StringError(
+                "build planning stopped because product builder plug-in '\(plugin.name)' failed for "
+                    + "artifact product '\(product.name)'"
+            )
+        }
+        return result
+    }
+
     /// Constructs all `PackagePIFBuilder` objects used by the `constructPIF` function.
     /// In particular, this is useful for unit testing the complex `PIFBuilder` class.
     func makePIFBuilders(
@@ -255,9 +472,12 @@ public final class PIFBuilder {
         let outputDir = self.parameters.pluginWorkingDirectory.appending("outputs")
         let treatWarningsAsErrors = WarningControlFlags.containsWarningsAsErrors(buildParameters.flags.swiftCompilerFlags.map(\.value))
 
-        let pluginsPerModule = graph.pluginsPerModule(
+        var pluginsPerModule = graph.pluginsPerModule(
             satisfying: buildParameters.buildEnvironment // .buildEnvironment(for: .host)
         )
+        for plugin in try graph.productBuilderPlugins() {
+            pluginsPerModule[plugin.id, default: []].append(plugin)
+        }
 
         let availablePluginTools = try await availableBuildPluginTools(
             graph: graph,
@@ -273,6 +493,9 @@ public final class PIFBuilder {
 
         for package in sortedPackages {
             var buildToolPluginResultsByTargetName: [String: [PackagePIFBuilder.BuildToolPluginInvocationResult]] = [:]
+            var productBuilderResultsByProductID: [
+                ResolvedProduct.ID: ProductBuilderPluginInvocationResult
+            ] = [:]
 
             for module in package.modules {
                 // Apply each build tool plugin used by the target in order,
@@ -462,8 +685,21 @@ public final class PIFBuilder {
                 }
             }
 
+            for product in package.products
+                where product.underlying.customProduct != nil
+                    && self.graph.reachableProducts.contains(id: product.id)
+            {
+                productBuilderResultsByProductID[product.id] = try await self.invokeProductBuilder(
+                    package: package,
+                    product: product,
+                    buildParameters: buildParameters,
+                    availablePluginTools: availablePluginTools
+                )
+            }
+
             let packagePIFBuilderDelegate = PackagePIFBuilderDelegate(
-                package: package
+                package: package,
+                disableSandbox: self.parameters.disableSandbox
             )
             let packagePIFBuilder = PackagePIFBuilder(
                 modulesGraph: self.graph,
@@ -471,6 +707,7 @@ public final class PIFBuilder {
                 packageManifest: package.manifest,
                 delegate: packagePIFBuilderDelegate,
                 buildToolPluginResultsByTargetName: buildToolPluginResultsByTargetName,
+                productBuilderResultsByProductID: productBuilderResultsByProductID,
                 createDylibForDynamicProducts: self.parameters.shouldCreateDylibForDynamicProducts,
                 materializeStaticArchiveProductsForRootPackages: self.parameters.materializeStaticArchiveProductsForRootPackages,
                 createDynamicVariantsForLibraryProducts: self.parameters.createDynamicVariantsForLibraryProducts,
@@ -493,6 +730,19 @@ public final class PIFBuilder {
     package func constructPIF(
         buildParameters: BuildParameters
     ) async throws -> (PIF.TopLevelObject, [PackagePIFBuilder.ModuleOrProduct]) {
+        let (pif, metadata, _) = try await self.constructPIFWithArtifacts(
+            buildParameters: buildParameters
+        )
+        return (pif, metadata)
+    }
+
+    private func constructPIFWithArtifacts(
+        buildParameters: BuildParameters
+    ) async throws -> (
+        PIF.TopLevelObject,
+        [PackagePIFBuilder.ModuleOrProduct],
+        [PIFGenerationResult.ArtifactProduct]
+    ) {
         return try await memoize(to: &self.cachedPIF) {
             let rootPackages = self.graph.rootPackages
             guard !rootPackages.isEmpty else {
@@ -502,9 +752,23 @@ public final class PIFBuilder {
             let packagesAndPIFBuilders = try await makePIFBuilders(buildParameters: buildParameters)
 
             var modulesAndProducts: [PackagePIFBuilder.ModuleOrProduct] = []
+            var artifactProducts: [PIFGenerationResult.ArtifactProduct] = []
             let packagesAndPIFProjects = try packagesAndPIFBuilders.map { (package, pifBuilder, _) in
                 let builtModulesAndProducts = try pifBuilder.build()
                 modulesAndProducts.append(contentsOf: builtModulesAndProducts)
+                for product in package.products {
+                    guard let result = pifBuilder.productBuilderResultsByProductID[product.id] else {
+                        continue
+                    }
+                    artifactProducts.append(
+                        .init(
+                            name: product.name,
+                            finalizerTargetGUID: product.pifTargetGUID.value,
+                            archiveTargetGUID: "\(product.pifTargetGUID.value):ARTIFACT-ARCHIVE",
+                            outputFiles: result.outputFiles
+                        )
+                    )
+                }
                 let pifProject: ProjectModel.Project = pifBuilder.pifProject
                 return (package, pifProject)
             }
@@ -529,7 +793,11 @@ public final class PIFBuilder {
                 path: try getCommonParentDirectory(paths: rootPackagesPaths),
                 projects: pifProjects
             )
-            return (PIF.TopLevelObject(workspace: workspace), modulesAndProducts)
+            return (
+                PIF.TopLevelObject(workspace: workspace),
+                modulesAndProducts,
+                artifactProducts.sorted { $0.name < $1.name }
+            )
         }
     }
 
@@ -604,7 +872,8 @@ public final class PIFBuilder {
         addLocalRpaths: PackagePIFBuilder.AddLocalRpaths,
         materializeStaticArchiveProductsForRootPackages: Bool,
         createDynamicVariantsForLibraryProducts: Bool,
-        hostBuildProductsPath: AbsolutePath
+        hostBuildProductsPath: AbsolutePath,
+        destinationBuildProductsPath: AbsolutePath? = nil
     ) async throws -> PIFGenerationResult {
         let parameters = PIFBuilderParameters(
             buildParameters,
@@ -616,7 +885,8 @@ public final class PIFBuilder {
             addLocalRpaths: addLocalRpaths,
             materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
             createDynamicVariantsForLibraryProducts: createDynamicVariantsForLibraryProducts,
-            hostBuildProductsPath: hostBuildProductsPath
+            hostBuildProductsPath: hostBuildProductsPath,
+            destinationBuildProductsPath: destinationBuildProductsPath ?? buildParameters.buildPath
         )
         let builder = Self(
             graph: packageGraph,
@@ -664,9 +934,11 @@ public final class PIFBuilder {
 
 fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelegate {
     let package: ResolvedPackage
+    let disableSandbox: Bool
 
-    init(package: ResolvedPackage) {
+    init(package: ResolvedPackage, disableSandbox: Bool) {
         self.package = package
+        self.disableSandbox = disableSandbox
     }
 
     var isRootPackage: Bool {
@@ -702,7 +974,7 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
     }
 
     var isPluginExecutionSandboxingDisabled: Bool {
-        false
+        self.disableSandbox
     }
 
     func configureProjectBuildSettings(_ buildSettings: inout ProjectModel.BuildSettings) {
@@ -827,9 +1099,25 @@ fileprivate func buildAggregatePIFProject(
     addEmptyBuildConfig(to: allExcludingTestsTargetKeyPath, name: "Release")
 
     for (package, packageProject) in packagesAndProjects where package.manifest.packageKind.isRoot {
+        let rootArtifactProductTargetIDs = Set(
+            modulesGraph.reachableProducts
+                .filter {
+                    $0.underlying.customProduct != nil
+                        && modulesGraph.package(for: $0)?.id == package.id
+                }
+                .map(\.pifTargetGUID)
+        )
+        let hiddenArtifactArchiveTargetIDs = Set(
+            rootArtifactProductTargetIDs.map {
+                GUID("\($0.value):ARTIFACT-ARCHIVE")
+            }
+        )
         for target in packageProject.targets {
             switch target {
             case .target(let target):
+                guard !hiddenArtifactArchiveTargetIDs.contains(target.id) else {
+                    continue
+                }
                 guard !target.id.hasSuffix(.dynamic) else {
                     // Otherwise we hit a bunch of "Unknown multiple commands produce: ..." errors,
                     // as the build artifacts from "PACKAGE-TARGET:Foo"
@@ -856,8 +1144,20 @@ fileprivate func buildAggregatePIFProject(
                         linkProduct: false
                     )
                 }
-            case .aggregate:
-                break
+            case .aggregate(let target):
+                guard rootArtifactProductTargetIDs.contains(target.id) else {
+                    continue
+                }
+                aggregateProject[keyPath: allIncludingTestsTargetKeyPath].common.addDependency(
+                    on: target.id,
+                    platformFilters: [],
+                    linkProduct: false
+                )
+                aggregateProject[keyPath: allExcludingTestsTargetKeyPath].common.addDependency(
+                    on: target.id,
+                    platformFilters: [],
+                    linkProduct: false
+                )
             }
         }
     }
@@ -929,7 +1229,8 @@ extension PIFBuilderParameters {
         addLocalRpaths: PackagePIFBuilder.AddLocalRpaths,
         materializeStaticArchiveProductsForRootPackages: Bool,
         createDynamicVariantsForLibraryProducts: Bool,
-        hostBuildProductsPath: AbsolutePath
+        hostBuildProductsPath: AbsolutePath,
+        destinationBuildProductsPath: AbsolutePath? = nil
     ) {
         self.init(
             isPackageAccessModifierSupported: buildParameters.driverParameters.isPackageAccessModifierSupported,
@@ -946,6 +1247,7 @@ extension PIFBuilderParameters {
             additionalFileRules: additionalFileRules,
             addLocalRpaths: addLocalRpaths,
             hostBuildProductsPath: hostBuildProductsPath,
+            destinationBuildProductsPath: destinationBuildProductsPath ?? buildParameters.buildPath,
             shouldPreserveSymlinks: buildParameters.shouldPreserveSymlinks
         )
     }

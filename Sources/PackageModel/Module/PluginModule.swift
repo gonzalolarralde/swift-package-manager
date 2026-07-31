@@ -53,12 +53,15 @@ public final class PluginModule: Module {
 
 public enum PluginCapability: Hashable {
     case buildTool
+    case productBuilder
     case command(intent: PluginCommandIntent, permissions: [PluginPermission])
 
     public init(from desc: TargetDescription.PluginCapability) {
         switch desc {
         case .buildTool:
             self = .buildTool
+        case .productBuilder:
+            self = .productBuilder
         case .command(let intent, let permissions):
             self = .command(intent: .init(from: intent), permissions: permissions.map{ .init(from: $0) })
         }

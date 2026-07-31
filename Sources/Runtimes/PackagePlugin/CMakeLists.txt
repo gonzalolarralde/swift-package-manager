@@ -18,6 +18,7 @@ add_library(PackagePlugin
   Plugin.swift
   PluginContextDeserializer.swift
   PluginMessages.swift
+  ProductBuilder.swift
   Protocols.swift
   Utilities.swift)
 

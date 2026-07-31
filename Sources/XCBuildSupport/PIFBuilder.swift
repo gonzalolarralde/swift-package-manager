@@ -116,6 +116,12 @@ public final class PIFBuilder {
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
     public func construct() throws -> PIF.TopLevelObject {
         try memoize(to: &self.pif) {
+            if let customProduct = self.graph.reachableProducts.first(where: { $0.underlying.customProduct != nil }) {
+                throw StringError(
+                    "artifact product '\(customProduct.name)' requires the Swift Build backend; "
+                        + "the Xcode build backend does not support product-builder plug-ins"
+                )
+            }
             let rootPackage = self.graph.rootPackages[self.graph.rootPackages.startIndex]
 
             let sortedPackages = self.graph.packages

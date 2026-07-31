@@ -24,6 +24,20 @@ enum HostToPluginMessage: Codable {
         pluginGeneratedResources: [InputContext.URL.Id]
     )
 
+    /// The host requests a declarative build plan for an artifact product.
+    case createProductBuildPlan(
+        context: InputContext,
+        rootPackageId: InputContext.Package.Id,
+        productId: InputContext.Product.Id,
+        typeIdentifier: String,
+        aggregateStaticLibraryId: InputContext.URL.Id,
+        resourceIds: [InputContext.URL.Id],
+        arguments: [String],
+        outputDirectoryId: InputContext.URL.Id,
+        buildConfiguration: String,
+        targetTriple: String
+    )
+
     /// The host requests that the plugin create build commands (corresponding to a `.buildTool` capability) for a target in the package graph.
     case createXcodeProjectBuildToolCommands(
         context: InputContext,
@@ -278,6 +292,8 @@ enum HostToPluginMessage: Codable {
                     case executable
                     case dynamicLibrary
                     case staticLibrary
+                    case file
+                    case directory
                 }
             }
         }
@@ -343,6 +359,9 @@ enum PluginToHostMessage: Codable {
 
     /// The plugin defines a prebuild command.
     case definePrebuildCommand(configuration: CommandConfiguration, outputFilesDirectory: URL)
+
+    /// The plugin identifies which command outputs complete the product.
+    case defineProductBuildPlan(outputFiles: [URL])
     
         struct CommandConfiguration: Codable {
             var version = 2

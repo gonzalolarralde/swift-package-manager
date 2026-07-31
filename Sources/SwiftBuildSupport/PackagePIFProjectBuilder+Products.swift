@@ -15,6 +15,8 @@ import TSCBasic
 import TSCUtility
 
 import struct Basics.AbsolutePath
+import struct Basics.InternalError
+import enum Basics.Sandbox
 import class Basics.ObservabilitySystem
 import struct Basics.SourceControlURL
 
@@ -31,12 +33,131 @@ import struct PackageModel.RegistryReleaseMetadata
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedPackage
 import struct PackageGraph.ResolvedProduct
-import PackageLoading
+
+@_spi(SwiftPMInternal)
+import SPMBuildCore
 
 import enum SwiftBuild.ProjectModel
+import struct SwiftBuild.Pair
 
 /// Extension to create PIF **products** for a given package.
 extension PackagePIFProjectBuilder {
+    // MARK: - Artifact Products
+
+    /// Lowers an artifact product to a hidden aggregate archive followed by a
+    /// public aggregate target that owns its product-builder commands.
+    mutating func makeArtifactProduct(_ product: PackageGraph.ResolvedProduct) throws {
+        guard let result = self.pifBuilder.productBuilderResultsByProductID[product.id] else {
+            throw InternalError("missing product-builder plan for artifact product '\(product.name)'")
+        }
+
+        let archiveTargetID = GUID("\(product.pifTargetGUID.value):ARTIFACT-ARCHIVE")
+        let archiveTargetName = "\(product.name)-artifact-archive"
+        _ = try self.buildLibraryProduct(
+            product,
+            type: .static,
+            embedResources: false,
+            targetID: archiveTargetID,
+            targetName: archiveTargetName,
+            forceStaticArchive: true
+        )
+
+        let finalizerTargetKeyPath = try self.project.addAggregateTarget { _ in
+            ProjectModel.AggregateTarget(
+                id: product.pifTargetGUID,
+                name: product.targetName()
+            )
+        }
+        var finalizerTarget = self.project[keyPath: finalizerTargetKeyPath]
+        finalizerTarget.common.addDependency(
+            on: archiveTargetID,
+            platformFilters: [],
+            linkProduct: false
+        )
+        // The plug-in target is a host-build-tool target whose dependencies are
+        // the executable tools available to the product builder. Depending on it
+        // keeps those tools in the configured graph when only this product is
+        // selected with `swift build --product`.
+        finalizerTarget.common.addDependency(
+            on: result.plugin.pifTargetGUID,
+            platformFilters: [],
+            linkProduct: false
+        )
+
+        for module in try product.recursiveModuleDependencies() where module.resources.hasContent {
+            finalizerTarget.common.addDependency(
+                on: self.pifTargetIdForResourceBundle(module.name),
+                platformFilters: [],
+                linkProduct: false
+            )
+        }
+
+        let buildSettings = self.package.underlying.packageBaseBuildSettings
+        finalizerTarget.common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Debug", settings: buildSettings)
+        }
+        finalizerTarget.common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Release", settings: buildSettings)
+        }
+
+        for command in result.buildCommands {
+            var commandLine = [
+                command.configuration.executable.pathString
+            ] + command.configuration.arguments
+            if !self.pifBuilder.delegate.isPluginExecutionSandboxingDisabled {
+                commandLine = try Sandbox.apply(
+                    command: commandLine,
+                    fileSystem: self.pifBuilder.fileSystem,
+                    strictness: .writableTemporaryDirectory,
+                    writableDirectories: [result.pluginOutputDirectory]
+                )
+            }
+
+            // The plug-in sees exhaustive destination resource file URLs.
+            // Resource-bundle target dependencies above order the finalizer
+            // after those files are copied. Use the corresponding source files
+            // in the task signature so nested changes invalidate the command
+            // without treating a directory as a custom-task input.
+            let resourceDestinationFiles = Set(result.resourceDestinationFiles)
+            let commandInputFiles = Array(Set(
+                command.inputFiles.filter { !resourceDestinationFiles.contains($0) }
+                    + result.resourceSourceFiles
+            )).sorted()
+            finalizerTarget.common.customTasks.append(
+                ProjectModel.CustomTask(
+                    commandLine: commandLine,
+                    environment: command.configuration.environment
+                        .map { Pair($0.rawValue, $1) }
+                        .sorted(by: <),
+                    workingDirectory: command.configuration.workingDirectory?.pathString ?? self.package.path.pathString,
+                    executionDescription: command.configuration.displayName
+                        ?? "Building artifact product \(product.name)",
+                    inputFilePaths: commandInputFiles.map(\.pathString),
+                    outputFilePaths: command.outputFiles.map(\.pathString),
+                    enableSandboxing: false,
+                    preparesForIndexing: false
+                )
+            )
+        }
+        self.project[keyPath: finalizerTargetKeyPath] = finalizerTarget
+
+        self.builtModulesAndProducts.append(
+            PackagePIFBuilder.ModuleOrProduct(
+                type: .staticArchive,
+                name: product.name,
+                moduleName: product.c99name,
+                pifTarget: .aggregate(finalizerTarget),
+                indexableFileURLs: [],
+                headerFiles: [],
+                linkedPackageBinaries: [],
+                swiftLanguageVersion: nil,
+                declaredPlatforms: self.declaredPlatforms,
+                deploymentTargets: self.deploymentTargets,
+                toolsVersion: self.pifBuilder.packageManifest.toolsVersion
+            )
+        )
+    }
+
     // MARK: - Main Module Products
 
     mutating func makeMainModuleProduct(_ product: PackageGraph.ResolvedProduct) throws {
@@ -622,7 +743,10 @@ extension PackagePIFProjectBuilder {
         _ product: PackageGraph.ResolvedProduct,
         type desiredProductType: ProductType.LibraryType,
         targetSuffix: TargetSuffix? = nil,
-        embedResources: Bool
+        embedResources: Bool,
+        targetID: GUID? = nil,
+        targetName: String? = nil,
+        forceStaticArchive: Bool = false
     ) throws -> PackagePIFBuilder.ModuleOrProduct {
         precondition(product.type.isLibrary)
 
@@ -637,7 +761,9 @@ extension PackagePIFProjectBuilder {
                 productName = "$(WRAPPER_NAME)"
                 productType = .framework
             }
-        } else if pifBuilder.delegate.isRootPackage && pifBuilder.materializeStaticArchiveProductsForRootPackages {
+        } else if forceStaticArchive
+            || (pifBuilder.delegate.isRootPackage && pifBuilder.materializeStaticArchiveProductsForRootPackages)
+        {
             productType = .staticArchive
         } else {
             productType = .packageProduct
@@ -649,9 +775,9 @@ extension PackagePIFProjectBuilder {
         // on which the package product depends.
         let libraryUmbrellaTargetKeyPath = try self.project.addTarget { _ in
             ProjectModel.Target(
-                id: product.pifTargetGUID(suffix: targetSuffix),
+                id: targetID ?? product.pifTargetGUID(suffix: targetSuffix),
                 productType: productType,
-                name: product.targetName(suffix: targetSuffix),
+                name: targetName ?? product.targetName(suffix: targetSuffix),
                 productName: productName
             )
         }
@@ -1022,6 +1148,10 @@ extension PackagePIFProjectBuilder {
             if let pluginTarget = pluginProduct.pluginModules!.only {
                 switch pluginTarget.capability {
                 case .buildTool:
+                    return .buildToolPlugin
+                case .productBuilder:
+                    // PIF has no separate product-builder plugin classification yet.
+                    // It has the same host-side compilation shape as a build-tool plugin.
                     return .buildToolPlugin
                 case .command:
                     return .commandPlugin

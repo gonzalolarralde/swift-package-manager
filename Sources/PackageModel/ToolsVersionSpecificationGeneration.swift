@@ -32,7 +32,10 @@ extension ToolsVersion {
         case .minor:
             break
         }
-        return "// swift-tools-version:\(self < .v5_4 ? "" : " ")\(versionSpecifier)"
+        let experimentalFeatures = self.experimentalFeatures.map { features in
+            ";(" + features.map(\.rawValue).sorted().joined(separator: ",") + ")"
+        } ?? ""
+        return "// swift-tools-version:\(self < .v5_4 ? "" : " ")\(versionSpecifier)\(experimentalFeatures)"
     }
 
     /// The least significant version to round to.

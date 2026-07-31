@@ -762,6 +762,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     package func generatePlan() async throws -> BuildPlan {
         let graph = try await getPackageGraph()
 
+        if let artifactProduct = graph.reachableProducts.first(where: { $0.underlying.customProduct != nil }) {
+            throw StringError(
+                "artifact product '\(artifactProduct.name)' requires the Swift Build backend; "
+                    + "the native build system does not support product-builder plug-ins"
+            )
+        }
+
         let pluginTools: [ResolvedModule.ID: [String: PluginTool]]
         // FIXME: This is unfortunate but we need to build plugin tools upfront at the moment because
         // llbuild doesn't support dynamic dependency detection. In order to construct a manifest

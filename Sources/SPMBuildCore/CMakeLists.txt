@@ -25,6 +25,7 @@ add_library(SPMBuildCore
   Plugins/PluginContextSerializer.swift
   Plugins/PluginInvocation.swift
   Plugins/PluginMessages.swift
+  Plugins/ProductBuilderPluginResolution.swift
   Plugins/PluginScriptRunner.swift
   CommandPluginResult.swift
   MainAttrDetection.swift
