@@ -1,0 +1,19 @@
+/.build/
+/.demo-runtime/
+/.swiftpm/
+/DerivedData/
+.DS_Store
+
+*.ipa
+*.xcarchive/
+*.xcresult/
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+
+# Signing material must remain local.
+*.cer
+*.key
+*.mobileprovision
+*.p12
+*.provisionprofile

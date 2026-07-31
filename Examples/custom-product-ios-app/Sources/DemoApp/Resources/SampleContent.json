@@ -1,0 +1,24 @@
+{
+  "headline": "A real iOS bundle from a custom SwiftPM product",
+  "summary": "The app target was compiled into SwiftPM's aggregate archive, then a product-builder plug-in packaged that archive and this resource bundle into an iOS application.",
+  "features": [
+    {
+      "id": "manifest-payload",
+      "title": "Versioned manifest payload",
+      "detail": "Package.swift passes JSON that the builder decodes into a Codable configuration.",
+      "systemImage": "curlybraces.square"
+    },
+    {
+      "id": "plugin",
+      "title": "Product-builder plug-in",
+      "detail": "The plug-in plans work after SwiftPM has built targets and resources.",
+      "systemImage": "puzzlepiece.extension.fill"
+    },
+    {
+      "id": "archive",
+      "title": "Xcode archive and IPA",
+      "detail": "The host packager creates Info.plist, assets, entitlements, archive, and export artifacts.",
+      "systemImage": "iphone.gen3"
+    }
+  ]
+}
