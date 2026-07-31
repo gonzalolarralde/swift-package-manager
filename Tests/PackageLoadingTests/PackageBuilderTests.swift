@@ -470,6 +470,41 @@ struct PackageBuilderTests {
     }
 
     @Test
+    func testCustomProductPreservesBuilderDescription() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/FirmwareCore/Firmware.swift"
+        )
+        let customProduct = ProductDescription.CustomProduct(
+            typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
+            builderPlugin: "RP2350Builder",
+            builderPluginPackage: "RP2350Support",
+            arguments: ["--family", "rp2350"]
+        )
+        let manifest = Manifest.createRootManifest(
+            displayName: "Firmware",
+            products: [
+                try ProductDescription(
+                    name: "Firmware",
+                    type: .library(.static),
+                    targets: ["FirmwareCore"],
+                    customProduct: customProduct
+                ),
+            ],
+            targets: [
+                try TargetDescription(name: "FirmwareCore"),
+            ]
+        )
+
+        try PackageBuilderTester(manifest, in: fs) { package, _ in
+            try package.checkModule("FirmwareCore") { _ in }
+            package.checkProduct("Firmware") { product in
+                product.check(type: .library(.static), targets: ["FirmwareCore"])
+                product.check(customProduct: customProduct)
+            }
+        }
+    }
+
+    @Test
     func testExecutableTargets() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/exec1/exec.swift",
@@ -3748,6 +3783,13 @@ final class PackageBuilderTester {
         func check(testEntryPointPath: String?, sourceLocation: SourceLocation = #_sourceLocation) {
             let expectedPath = testEntryPointPath.map({ try! AbsolutePath(validating: $0) })
             #expect(product.testEntryPointPath == expectedPath, sourceLocation: sourceLocation)
+        }
+
+        func check(
+            customProduct: ProductDescription.CustomProduct?,
+            sourceLocation: SourceLocation = #_sourceLocation
+        ) {
+            #expect(product.customProduct == customProduct, sourceLocation: sourceLocation)
         }
     }
 

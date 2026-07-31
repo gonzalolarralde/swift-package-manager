@@ -562,6 +562,48 @@ final class ManifestSourceGenerationTests: XCTestCase {
         XCTAssertTrue(contents.contains(".library(name: \"Foo\", targets: [\"Bar\"], type: .static)"), "contents: \(contents)")
     }
 
+    func testArtifactProductSourceGenerationRoundTrip() async throws {
+        let toolsVersion = try XCTUnwrap(ToolsVersion(
+            string: "6.3.0",
+            experimentalFeatures: [.experimentalProductBuilders]
+        ))
+        let manifestContents = """
+            // swift-tools-version: 6.3;(experimentalProductBuilders)
+            import PackageDescription
+
+            let package = Package(
+                name: "Firmware",
+                products: [
+                    .artifact(
+                        name: "Firmware",
+                        typeIdentifier: "pkg:swift/github.com/example/RP2350Support",
+                        targets: ["FirmwareCore"],
+                        builderPlugin: .pluginItem(
+                            name: "FirmwareBuilder",
+                            package: "RP2350Support"
+                        ),
+                        arguments: ["--board", "pico2"]
+                    )
+                ],
+                targets: [.target(name: "FirmwareCore")]
+            )
+            """
+
+        let generated = try await self.testManifestWritingRoundTrip(
+            manifestContents: manifestContents,
+            toolsVersion: toolsVersion
+        )
+        XCTAssertTrue(generated.contains(";(experimentalProductBuilders)"), "contents: \(generated)")
+        XCTAssertTrue(generated.contains(".artifact("), "contents: \(generated)")
+        XCTAssertTrue(
+            generated.contains(
+                "builderPlugin: .pluginItem(name: \"FirmwareBuilder\", package: \"RP2350Support\")"
+            ),
+            "contents: \(generated)"
+        )
+        XCTAssertTrue(generated.contains("arguments: [\"--board\", \"pico2\"]"), "contents: \(generated)")
+    }
+
     /// Tests a fully customized iOSApplication (one that exercises every parameter in at least some way).
     func testAppleProductSettings() throws {
       #if ENABLE_APPLE_PRODUCT_TYPES
