@@ -204,6 +204,9 @@ extension Package {
 
 // MARK: - file system
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExprMembers(registrationAccess: .package)
+#endif
 extension Package.Dependency {
     /// Adds a local dependency to a package located at the path you provide.
     ///
@@ -217,9 +220,6 @@ extension Package.Dependency {
     /// - Parameter path: The file system path to the package.
     ///
     /// - Returns: A package dependency.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         path: String
     ) -> Package.Dependency {
@@ -238,9 +238,6 @@ extension Package.Dependency {
     ///
     /// - Returns: A package dependency.
     @available(_PackageDescription, introduced: 6.1)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         path: String,
         traits: Set<Trait> = [.defaults]
@@ -263,9 +260,6 @@ extension Package.Dependency {
     ///
     /// - Returns: A package dependency.
     @available(_PackageDescription, introduced: 5.2)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         name: String,
         path: String
@@ -287,9 +281,6 @@ extension Package.Dependency {
     ///
     /// - Returns: A package dependency.
     @available(_PackageDescription, introduced: 6.1)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         name: String,
         path: String,
@@ -301,6 +292,9 @@ extension Package.Dependency {
 
 // MARK: - source control
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExprMembers(registrationAccess: .package)
+#endif
 extension Package.Dependency {
     /// Adds a remote package dependency with a version requirement, starting with the given minimum version,
     /// going up to the next major version.
@@ -326,9 +320,6 @@ extension Package.Dependency {
     ///    - version: The minimum version requirement.
     ///
     /// - Returns: A `Package.Dependency` instance.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         url: String,
         from version: Version
@@ -360,9 +351,6 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 6.1)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         url: String,
         from version: Version,
@@ -420,9 +408,6 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 5.5)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         url: String,
         branch: String
@@ -443,9 +428,6 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 6.1)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         url: String,
         branch: String,
@@ -489,9 +471,6 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 5.5)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         url: String,
         revision: String
@@ -512,9 +491,6 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 6.1)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         url: String,
         revision: String,
@@ -561,9 +537,6 @@ extension Package.Dependency {
     ///   - range: The custom version range requirement.
     ///
     /// - Returns: A `Package.Dependency` instance.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         url: String,
         _ range: Range<Version>
@@ -588,9 +561,6 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 6.1)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         url: String,
         _ range: Range<Version>,
@@ -643,9 +613,6 @@ extension Package.Dependency {
     ///   - range: The closed version range requirement.
     ///
     /// - Returns: A `Package.Dependency` instance.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         url: String,
         _ range: ClosedRange<Version>
@@ -670,9 +637,6 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 6.1)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         url: String,
         _ range: ClosedRange<Version>,
@@ -814,9 +778,6 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 5.6)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         url: String,
         exact version: Version
@@ -844,9 +805,6 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 6.1)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         url: String,
         exact version: Version,
@@ -911,6 +869,9 @@ extension Package.Dependency {
 
 // MARK: - registry
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExprMembers(registrationAccess: .package)
+#endif
 extension Package.Dependency {
     /// Adds a remote package dependency that uses the version requirement, starting with the given minimum version,
     /// going up to the next major version.
@@ -937,9 +898,6 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 5.7)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         id: String,
         from version: Version
@@ -971,9 +929,6 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 6.1)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         id: String,
         from version: Version,
@@ -1003,9 +958,6 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 5.7)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         id: String,
         exact version: Version
@@ -1033,9 +985,6 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 6.1)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         id: String,
         exact version: Version,
@@ -1076,9 +1025,6 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 5.7)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         id: String,
         _ range: Range<Version>
@@ -1117,9 +1063,6 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 6.1)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         id: String,
         _ range: Range<Version>,
@@ -1146,9 +1089,6 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 5.7)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         id: String,
         _ range: ClosedRange<Version>
@@ -1179,9 +1119,6 @@ extension Package.Dependency {
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 6.1)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func package(
         id: String,
         _ range: ClosedRange<Version>,

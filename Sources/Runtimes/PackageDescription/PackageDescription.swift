@@ -461,14 +461,14 @@ extension LanguageTag: RawRepresentable {
 }
 
 /// ExpressibleByStringLiteral implementation.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExprMembers(registrationAccess: .package)
+#endif
 extension LanguageTag: ExpressibleByStringLiteral {
     
     /// Creates an instance initialized to the given value.
     ///
     /// - Parameter value: The value of the new instance.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public init(stringLiteral value: String) {
         tag = value
     }
@@ -494,6 +494,9 @@ extension LanguageTag: CustomStringConvertible {
 }
 
 /// The system package providers that this package uses.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public enum SystemPackageProvider {
 
     /// Packages installable by the HomeBrew package manager.
@@ -513,9 +516,6 @@ public enum SystemPackageProvider {
     /// - Parameter packages: The list of package names.
     ///
     /// - Returns: A package provider.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func brew(_ packages: [String]) -> SystemPackageProvider {
         return .brewItem(packages)
     }
@@ -526,9 +526,6 @@ public enum SystemPackageProvider {
     /// - Parameter packages: The list of package names.
     ///
     /// - Returns: A package provider.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func apt(_ packages: [String]) -> SystemPackageProvider {
         return .aptItem(packages)
     }
@@ -541,9 +538,6 @@ public enum SystemPackageProvider {
     ///
     /// - Returns: A package provider.
     @available(_PackageDescription, introduced: 5.3)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func yum(_ packages: [String]) -> SystemPackageProvider {
         return .yumItem(packages)
     }

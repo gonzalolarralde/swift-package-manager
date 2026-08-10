@@ -24,6 +24,9 @@ internal import ConstExpr
 ///
 /// A target may depend on other targets within the same package and on products
 /// vended by the package's dependencies.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public final class Target {
 
     /// The different types of a target.
@@ -241,6 +244,9 @@ public final class Target {
 
     /// Construct a target.
     @_spi(PackageDescriptionInternal)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExprIgnored
+    #endif
     public init(
         name: String,
         dependencies: [Dependency],
@@ -578,9 +584,6 @@ public final class Target {
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target
     @available(_PackageDescription, introduced: 5.9)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func target(
         name: String,
         dependencies: [Dependency] = [],
@@ -753,9 +756,6 @@ public final class Target {
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target
     @available(_PackageDescription, introduced: 5.9)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func executableTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -1002,9 +1002,6 @@ public final class Target {
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target.
     @available(_PackageDescription, introduced: 5.9)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func testTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -1053,9 +1050,6 @@ public final class Target {
     ///     that is, values like `../Foo` or `/Foo` are invalid.
     ///   - pkgConfig: The name of the `pkg-config` file for this system library.
     ///   - providers: The providers for this system library.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func systemLibrary(
         name: String,
         path: String? = nil,
@@ -1086,9 +1080,6 @@ public final class Target {
     ///   - checksum: The checksum of the archive file that contains the binary
     ///     artifact.
     @available(_PackageDescription, introduced: 5.3)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func binaryTarget(
         name: String,
         url: String,
@@ -1117,9 +1108,6 @@ public final class Target {
     ///     a binary artifact or to an archive file that contains the binary
     ///     artifact at its root.
     @available(_PackageDescription, introduced: 5.3)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func binaryTarget(
         name: String,
         path: String
@@ -1242,9 +1230,6 @@ public final class Target {
     ///   - packageAccess: Allows access to package symbols from other targets in the package.
     /// - Returns: A `Target` instance.
     @available(_PackageDescription, introduced: 5.9)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func plugin(
         name: String,
         capability: PluginCapability,
@@ -1269,6 +1254,9 @@ public final class Target {
 
 
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExprMembers(registrationAccess: .package)
+#endif
 extension Target.Dependency {
     @available(_PackageDescription, obsoleted: 5.7, message: "use .product(name:package:condition) instead.")
     public static func productItem(name: String, package: String? = nil, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
@@ -1328,9 +1316,6 @@ extension Target.Dependency {
     ///     platform.
     /// - Returns: A `Target.Dependency` instance.
 @available(_PackageDescription, introduced: 5.3)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func target(name: String, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
         return .targetItem(name: name, condition: condition)
     }
@@ -1364,9 +1349,6 @@ extension Target.Dependency {
     ///       dependency for a specific platform.
     /// - Returns: A `Target.Dependency` instance.
 @available(_PackageDescription, introduced: 5.7)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func product(
       name: String,
       package: String,
@@ -1389,15 +1371,15 @@ extension Target.Dependency {
     ///     platform.
     /// - Returns: A `Target.Dependency` instance.
 @available(_PackageDescription, introduced: 5.3)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func byName(name: String, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
         return .byNameItem(name: name, condition: condition)
     }
 }
 
 /// A condition that limits the application of a target's dependency.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct TargetDependencyCondition: Sendable {
     let platforms: [Platform]?
     let traits: Set<String>?
@@ -1424,9 +1406,6 @@ public struct TargetDependencyCondition: Sendable {
     ///
     /// - Parameter platforms: The applicable platforms for this target dependency condition.
     @available(_PackageDescription, introduced: 5.7)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func when(
         platforms: [Platform]
     ) -> TargetDependencyCondition? {
@@ -1438,9 +1417,6 @@ public struct TargetDependencyCondition: Sendable {
     /// - Parameter platforms: The applicable platforms for this target dependency condition.
     /// - Parameter traits: The applicable traits for this target dependency condition.
     @available(_PackageDescription, introduced: 6.1)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func when(
         platforms: [Platform],
         traits: Set<String>
@@ -1452,9 +1428,6 @@ public struct TargetDependencyCondition: Sendable {
     ///
     /// - Parameter traits: The applicable traits for this target dependency condition.
     @available(_PackageDescription, introduced: 6.1)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func when(
         traits: Set<String>
     ) -> TargetDependencyCondition? {
@@ -1462,6 +1435,9 @@ public struct TargetDependencyCondition: Sendable {
     }
 }
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExprMembers(registrationAccess: .package)
+#endif
 extension Target.PluginCapability {
     
     /// The plug-in is a build tool.
@@ -1471,9 +1447,6 @@ extension Target.PluginCapability {
     ///
     ///  - Returns: A plug-in capability that defines a build tool.
     @available(_PackageDescription, introduced: 5.5)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func buildTool() -> Target.PluginCapability {
         return .buildTool
     }
@@ -1578,15 +1551,15 @@ public enum PluginNetworkPermissionScope {
     }
 }
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExprMembers(registrationAccess: .package)
+#endif
 extension Target.PluginUsage {
     /// Specifies use of a plugin target in the same package.
     ///
     /// - Parameter name: The name of the plugin target.
     /// - Returns: A `PluginUsage` instance.
     @available(_PackageDescription, introduced: 5.5)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func plugin(name: String) -> Target.PluginUsage {
         return .plugin(name: name, package: nil)
     }
@@ -1597,14 +1570,14 @@ extension Target.PluginUsage {
 
 /// `ExpressibleByStringLiteral` conformance.
 ///
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExprMembers(registrationAccess: .package)
+#endif
 extension Target.Dependency: ExpressibleByStringLiteral {
 
     /// Creates a target dependency instance with the given value.
     ///
     /// - Parameter value: A string literal.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public init(stringLiteral value: String) {
         self = .byNameItem(name: value, condition: nil)
     }
@@ -1612,16 +1585,15 @@ extension Target.Dependency: ExpressibleByStringLiteral {
 
 /// `ExpressibleByStringLiteral` conformance.
 ///
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExprMembers(registrationAccess: .package)
+#endif
 extension Target.PluginUsage: ExpressibleByStringLiteral {
 
     /// Specifies use of a plugin target in the same package.
     ///
     /// - Parameter value: A string literal.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public init(stringLiteral value: String) {
         self = .plugin(name: value, package: nil)
     }
 }
-

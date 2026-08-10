@@ -17,6 +17,9 @@ internal import ConstExpr
 #endif
 
 /// The build configuration, such as debug or release.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct BuildConfiguration: Sendable {
     /// The configuration of the build. Valid values are `debug` and `release`.
     let config: String
@@ -26,15 +29,9 @@ public struct BuildConfiguration: Sendable {
     }
 
     /// The debug build configuration.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static let debug: BuildConfiguration = BuildConfiguration("debug")
 
     /// The release build configuration.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static let release: BuildConfiguration = BuildConfiguration("release")
 }
 
@@ -66,6 +63,9 @@ public struct BuildConfiguration: Sendable {
 ///     ]
 /// ),
 /// ```
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct BuildSettingCondition: Sendable {
     /// The applicable platforms for this build setting condition.
     let platforms: [Platform]?
@@ -96,6 +96,9 @@ public struct BuildSettingCondition: Sendable {
     ///   - configuration: The applicable build configuration for this build setting condition.
     ///   - traits: The applicable traits for this build setting condition.
     @available(_PackageDescription, introduced: 6.1)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExprIgnored
+    #endif
     public static func when(
         platforms: [Platform]? = nil,
         configuration: BuildConfiguration? = nil,
@@ -111,9 +114,6 @@ public struct BuildSettingCondition: Sendable {
     ///   - platforms: The applicable platforms for this build setting condition.
     ///   - configuration: The applicable build configuration for this build setting condition.
     @available(_PackageDescription, introduced: 5.7)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func when(platforms: [Platform], configuration: BuildConfiguration) -> BuildSettingCondition {
         BuildSettingCondition(platforms: platforms, config: configuration, traits: nil)
     }
@@ -122,9 +122,6 @@ public struct BuildSettingCondition: Sendable {
     ///
     /// - Parameter platforms: The applicable platforms for this build setting condition.
     @available(_PackageDescription, introduced: 5.7)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func when(platforms: [Platform]) -> BuildSettingCondition {
         BuildSettingCondition(platforms: platforms, config: .none, traits: nil)
     }
@@ -133,9 +130,6 @@ public struct BuildSettingCondition: Sendable {
     ///
     /// - Parameter configuration: The applicable build configuration for this build setting condition.
     @available(_PackageDescription, introduced: 5.7)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func when(configuration: BuildConfiguration) -> BuildSettingCondition {
         BuildSettingCondition(platforms: .none, config: configuration, traits: nil)
     }
@@ -155,6 +149,9 @@ struct BuildSettingData {
 }
 
 /// A C language build setting.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct CSetting: Sendable {
     /// The abstract build setting data.
     let data: BuildSettingData
@@ -177,9 +174,6 @@ public struct CSetting: Sendable {
     ///   - path: The path of the directory that contains the headers. The path is relative to the target's directory.
     ///   - condition: A condition that restricts the use of the build setting.
     @available(_PackageDescription, introduced: 5.0)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func headerSearchPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> CSetting {
         return CSetting(name: "headerSearchPath", value: [path], condition: condition)
     }
@@ -196,9 +190,6 @@ public struct CSetting: Sendable {
     ///   - condition: A condition that restricts the use of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.0)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func define(_ name: String, to value: String? = nil, _ condition: BuildSettingCondition? = nil) -> CSetting {
         var settingValue = name
         if let value {
@@ -225,9 +216,6 @@ public struct CSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.0)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> CSetting {
         return CSetting(name: "unsafeFlags", value: flags, condition: condition)
     }
@@ -320,6 +308,9 @@ public struct CSetting: Sendable {
 }
 
 /// A CXX-language build setting.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct CXXSetting: Sendable {
     /// The data store for the CXX build setting.
     let data: BuildSettingData
@@ -343,9 +334,6 @@ public struct CXXSetting: Sendable {
     ///   relative to the target's directory.
     ///   - condition: A condition that restricts the application of the build setting.
     @available(_PackageDescription, introduced: 5.0)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func headerSearchPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> CXXSetting {
         return CXXSetting(name: "headerSearchPath", value: [path], condition: condition)
     }
@@ -362,9 +350,6 @@ public struct CXXSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.0)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func define(_ name: String, to value: String? = nil, _ condition: BuildSettingCondition? = nil) -> CXXSetting {
         var settingValue = name
         if let value {
@@ -390,9 +375,6 @@ public struct CXXSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.0)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> CXXSetting {
         return CXXSetting(name: "unsafeFlags", value: flags, condition: condition)
     }
@@ -485,6 +467,9 @@ public struct CXXSetting: Sendable {
 }
 
 /// A Swift language build setting.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct SwiftSetting: Sendable {
     /// The data store for the Swift build setting.
     let data: BuildSettingData
@@ -515,9 +500,6 @@ public struct SwiftSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.0)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func define(_ name: String, _ condition: BuildSettingCondition? = nil) -> SwiftSetting {
         return SwiftSetting(name: "define", value: [name], condition: condition)
     }
@@ -540,9 +522,6 @@ public struct SwiftSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.0)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> SwiftSetting {
         return SwiftSetting(name: "unsafeFlags", value: flags, condition: condition)
     }
@@ -564,9 +543,6 @@ public struct SwiftSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.8)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func enableUpcomingFeature(
         _ name: String,
         _ condition: BuildSettingCondition? = nil
@@ -591,9 +567,6 @@ public struct SwiftSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.8)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func enableExperimentalFeature(
         _ name: String,
         _ condition: BuildSettingCondition? = nil
@@ -617,9 +590,6 @@ public struct SwiftSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build
     /// setting.
     @available(_PackageDescription, introduced: 6.2)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func strictMemorySafety(
       _ condition: BuildSettingCondition? = nil
     ) -> SwiftSetting {
@@ -653,9 +623,6 @@ public struct SwiftSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.9)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func interoperabilityMode(
       _ mode: InteroperabilityMode,
       _ condition: BuildSettingCondition? = nil
@@ -690,9 +657,6 @@ public struct SwiftSetting: Sendable {
     ///   - mode: The Swift language mode to use.
     ///   - condition: A condition that restricts the application of the build setting.
     @available(_PackageDescription, introduced: 6.0)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func swiftLanguageMode(
       _ mode: SwiftLanguageMode,
       _ condition: BuildSettingCondition? = nil
@@ -762,9 +726,6 @@ public struct SwiftSetting: Sendable {
     /// The compiler defaults to inferring unannotated code as `nonisolated` if unspecified,
     /// or if the `isolation` parameter is set to `nil`.
     @available(_PackageDescription, introduced: 6.2)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func defaultIsolation(
         _ isolation: MainActor.Type?,
         _ condition: BuildSettingCondition? = nil
@@ -781,6 +742,9 @@ public struct SwiftSetting: Sendable {
 }
 
 /// A linker build setting.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct LinkerSetting: Sendable {
     /// The data store for the Linker setting.
     let data: BuildSettingData
@@ -801,9 +765,6 @@ public struct LinkerSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.0)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func linkedLibrary(_ library: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
         return LinkerSetting(name: "linkedLibrary", value: [library], condition: condition)
     }
@@ -820,9 +781,6 @@ public struct LinkerSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.0)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func linkedFramework(_ framework: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
         return LinkerSetting(name: "linkedFramework", value: [framework], condition: condition)
     }
@@ -845,9 +803,6 @@ public struct LinkerSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.0)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
         return LinkerSetting(name: "unsafeFlags", value: flags, condition: condition)
     }

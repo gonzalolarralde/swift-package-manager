@@ -63,6 +63,9 @@ internal import ConstExpr
 ///     ]
 /// )
 /// ```
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public class Product {
     /// The name of the package product.
     public let name: String
@@ -146,9 +149,6 @@ public class Product {
     ///   - targets: The targets that are bundled into a library product.
     ///
     /// - Returns: A `Product` instance.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func library(
         name: String,
         type: Library.LibraryType? = nil,
@@ -163,9 +163,6 @@ public class Product {
     ///   - name: The name of the executable product.
     ///   - targets: The targets to bundle into an executable product.
     /// - Returns: A `Product` instance.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func executable(
         name: String,
         targets: [String]
@@ -174,6 +171,9 @@ public class Product {
     }
 
     @_spi(PackageProductSettings)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExprIgnored
+    #endif
     public static func executable(
         name: String,
         targets: [String],
@@ -194,9 +194,6 @@ public class Product {
     ///   - targets: The plugin targets to vend as a product.
     /// - Returns: A `Product` instance.
     @available(_PackageDescription, introduced: 5.5)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func plugin(
         name: String,
         targets: [String]

@@ -36,6 +36,9 @@ internal import ConstExpr
 ///
 /// To learn more about package resources, see [Bundling resources as a Swift Package](https://developer.apple.com/documentation/xcode/bundling-resources-with-a-swift-package).
 @available(_PackageDescription, introduced: 5.3)
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct Resource: Sendable {
 
     /// Defines the explicit type of localization for resources.
@@ -82,9 +85,6 @@ public struct Resource: Sendable {
     ///   - path: The path for a resource.
     ///   - localization: The explicit localization type for the resource.
     /// - Returns: A `Resource` instance.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func process(_ path: String, localization: Localization? = nil) -> Resource {
         return Resource(rule: "process", path: path, localization: localization)
     }
@@ -101,9 +101,6 @@ public struct Resource: Sendable {
     ///
     /// - Parameter path: The path for a resource.
     /// - Returns: A `Resource` instance.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func copy(_ path: String) -> Resource {
         return Resource(rule: "copy", path: path, localization: nil)
     }
@@ -127,9 +124,6 @@ public struct Resource: Sendable {
     /// - Parameter path: The path for a resource.
     /// - Returns: A `Resource` instance.
     @available(_PackageDescription, introduced: 5.9)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func embedInCode(_ path: String) -> Resource {
         return Resource(rule: "embedInCode", path: path, localization: nil)
     }

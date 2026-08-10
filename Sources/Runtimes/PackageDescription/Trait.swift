@@ -59,11 +59,11 @@ internal import ConstExpr
 /// #endif // Trait1
 /// ```
 @available(_PackageDescription, introduced: 6.1)
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct Trait: Hashable, ExpressibleByStringLiteral {
     /// Declares the default traits for this package.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func `default`(enabledTraits: Set<String>) -> Self {
         .init(
             name: "default",
@@ -99,9 +99,6 @@ public struct Trait: Hashable, ExpressibleByStringLiteral {
     ///   - name: The trait's canonical name.
     ///   - description: The trait's description.
     ///   - enabledTraits: A set of other traits of this package that this trait enables.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public init(
         name: String,
         description: String? = nil,
@@ -114,9 +111,6 @@ public struct Trait: Hashable, ExpressibleByStringLiteral {
 
     /// Creates a trait with the name you provide.
     /// - Parameter value: The trait's canonical name.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public init(stringLiteral value: StringLiteralType) {
         self.init(name: value)
     }
@@ -127,9 +121,6 @@ public struct Trait: Hashable, ExpressibleByStringLiteral {
     ///   - name: The trait's canonical name.
     ///   - description: The trait's description.
     ///   - enabledTraits: A set of other traits of this package that this trait enables.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func trait(
         name: String,
         description: String? = nil,

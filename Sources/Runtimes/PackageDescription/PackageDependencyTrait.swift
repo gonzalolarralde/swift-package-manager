@@ -17,14 +17,12 @@ internal import ConstExpr
 extension Package.Dependency {
     /// An enabled trait of a dependency.
     @available(_PackageDescription, introduced: 6.1)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public struct Trait: Hashable, Sendable, ExpressibleByStringLiteral {
         /// Enables all default traits of the dependency.
-        #if SWIFTPM_CONSTEXPR_MANIFESTS
-        @ConstExpr(registrationAccess: .package)
         public static let defaults: Trait = Self.init(name: "default")
-        #else
-        public static let defaults = Self.init(name: "default")
-        #endif
 
         /// A condition that limits the application of a trait for a dependency.
         public struct Condition: Hashable, Sendable {
@@ -57,9 +55,6 @@ extension Package.Dependency {
         /// - Parameters:
         ///   - name: The name of the enabled trait.
         ///   - condition: The condition under which the trait is enabled.
-        #if SWIFTPM_CONSTEXPR_MANIFESTS
-        @ConstExpr(registrationAccess: .package)
-        #endif
         public init(
             name: String,
             condition: Condition? = nil
@@ -71,9 +66,6 @@ extension Package.Dependency {
         /// Creates a new enabled trait.
         ///
         /// - Parameter value: The name of the enabled trait.
-        #if SWIFTPM_CONSTEXPR_MANIFESTS
-        @ConstExpr(registrationAccess: .package)
-        #endif
         public init(stringLiteral value: StringLiteralType) {
             self.init(name: value)
         }
@@ -83,9 +75,6 @@ extension Package.Dependency {
         /// - Parameters:
         ///   - name: The name of the enabled trait.
         ///   - condition: The condition under which the trait is enabled.
-        #if SWIFTPM_CONSTEXPR_MANIFESTS
-        @ConstExpr(registrationAccess: .package)
-        #endif
         public static func trait(
             name: String,
             condition: Condition? = nil

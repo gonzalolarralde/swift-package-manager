@@ -14,13 +14,13 @@
 internal import ConstExpr
 #endif
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExprMembers(registrationAccess: .package)
+#endif
 extension Version: ExpressibleByStringLiteral {
     /// Initializes a version struct with the provided string literal.
     ///
     /// - Parameter value: A string literal to use for creating a new version struct.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public init(stringLiteral value: String) {
         if let version = Version(value) {
             self = version

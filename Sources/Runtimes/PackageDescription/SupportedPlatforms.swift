@@ -15,6 +15,9 @@ internal import ConstExpr
 #endif
 
 /// A platform supported by Swift Package Manager.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct Platform: Equatable, Sendable {
 
     /// The name of the platform.
@@ -30,87 +33,48 @@ public struct Platform: Equatable, Sendable {
     /// - Parameter platformName: The name of the platform.
     /// - Returns: A `Platform` instance.
     @available(_PackageDescription, introduced: 5.6)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func custom(_ platformName: String) -> Platform {
         return Platform(name: platformName)
     }
 
     /// The macOS platform.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static let macOS: Platform = Platform(name: "macos")
 
     /// The Mac Catalyst platform.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static let macCatalyst: Platform = Platform(name: "maccatalyst")
 
     /// The iOS platform.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static let iOS: Platform = Platform(name: "ios")
 
     /// The tvOS platform.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static let tvOS: Platform = Platform(name: "tvos")
 
     /// The watchOS platform.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static let watchOS: Platform = Platform(name: "watchos")
 
     /// The visionOS platform.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static let visionOS: Platform = Platform(name: "visionos")
 
     /// The DriverKit platform
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static let driverKit: Platform = Platform(name: "driverkit")
 
     /// The Linux platform.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static let linux: Platform = Platform(name: "linux")
 
     /// The Windows platform.
     @available(_PackageDescription, introduced: 5.2)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static let windows: Platform = Platform(name: "windows")
 
     /// The Android platform.
     @available(_PackageDescription, introduced: 5.2)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static let android: Platform = Platform(name: "android")
 
     /// The WebAssembly System Interface platform.
     @available(_PackageDescription, introduced: 5.3)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static let wasi: Platform = Platform(name: "wasi")
 
     /// The OpenBSD platform.
     @available(_PackageDescription, introduced: 5.8)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static let openbsd: Platform = Platform(name: "openbsd")
 
     /// The FreeBSD platform.
@@ -135,6 +99,9 @@ public struct Platform: Equatable, Sendable {
 /// package's deployment version. The deployment target of a package's
 /// dependencies must be lower than or equal to the top-level package's
 /// deployment target version for a particular platform.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct SupportedPlatform: Equatable, Sendable {
 
     /// The platform.
@@ -154,9 +121,6 @@ public struct SupportedPlatform: Equatable, Sendable {
     /// - Since: First available in PackageDescription 5.0
     ///
     /// - Parameter version: The minimum deployment target that the package supports.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func macOS(_ version: SupportedPlatform.MacOSVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .macOS, version: version.version)
     }
@@ -173,9 +137,6 @@ public struct SupportedPlatform: Equatable, Sendable {
     ///     representation of two or three dot-separated integers, such as
     ///     `10.10.1`.
     /// - Returns: A `SupportedPlatform` instance.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func macOS(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .macOS, version: SupportedPlatform.MacOSVersion(string: versionString).version)
     }
@@ -187,9 +148,6 @@ public struct SupportedPlatform: Equatable, Sendable {
     /// - Parameter version: The minimum deployment target that the package supports.
     /// - Returns: A `SupportedPlatform` instance.
     @available(_PackageDescription, introduced: 5.5)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func macCatalyst(_ version: SupportedPlatform.MacCatalystVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .macCatalyst, version: version.version)
     }
@@ -204,9 +162,6 @@ public struct SupportedPlatform: Equatable, Sendable {
     /// - Parameter versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as `13.0.1`.
     /// - Returns: A `SupportedPlatform` instance.
     @available(_PackageDescription, introduced: 5.5)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func macCatalyst(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .macCatalyst, version: SupportedPlatform.MacCatalystVersion(string: versionString).version)
     }
@@ -217,9 +172,6 @@ public struct SupportedPlatform: Equatable, Sendable {
     ///
     /// - Parameter version: The minimum deployment target that the package supports.
     /// - Returns: A `SupportedPlatform` instance.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func iOS(_ version: SupportedPlatform.IOSVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .iOS, version: version.version)
     }
@@ -235,9 +187,6 @@ public struct SupportedPlatform: Equatable, Sendable {
     /// - Parameter versionString: The minimum deployment target as a string
     ///     representation of two or three dot-separated integers, such as `8.0.1`.
     /// - Returns: A `SupportedPlatform` instance.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func iOS(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .iOS, version: SupportedPlatform.IOSVersion(string: versionString).version)
     }
@@ -248,9 +197,6 @@ public struct SupportedPlatform: Equatable, Sendable {
     ///
     /// - Parameter version: The minimum deployment target that the package supports.
     /// - Returns: A `SupportedPlatform` instance.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func tvOS(_ version: SupportedPlatform.TVOSVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .tvOS, version: version.version)
     }
@@ -266,9 +212,6 @@ public struct SupportedPlatform: Equatable, Sendable {
     /// - Parameter versionString: The minimum deployment target as a string
     ///     representation of two or three dot-separated integers, such as `9.0.1`.
     /// - Returns: A `SupportedPlatform` instance.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func tvOS(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .tvOS, version: SupportedPlatform.TVOSVersion(string: versionString).version)
     }
@@ -280,9 +223,6 @@ public struct SupportedPlatform: Equatable, Sendable {
     ///
     /// - Parameter version: The minimum deployment target that the package supports.
     /// - Returns: A `SupportedPlatform` instance.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func watchOS(_ version: SupportedPlatform.WatchOSVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .watchOS, version: version.version)
     }
@@ -297,9 +237,6 @@ public struct SupportedPlatform: Equatable, Sendable {
     /// - Parameter versionString: The minimum deployment target as a string
     ///     representation of two or three dot-separated integers, such as `2.0.1`.
     /// - Returns: A `SupportedPlatform` instance.
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func watchOS(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .watchOS, version: SupportedPlatform.WatchOSVersion(string: versionString).version)
     }
@@ -312,9 +249,6 @@ public struct SupportedPlatform: Equatable, Sendable {
     /// - Parameter version: The minimum deployment target that the package supports.
     /// - Returns: A `SupportedPlatform` instance.
     @available(_PackageDescription, introduced: 5.9)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func visionOS(_ version: SupportedPlatform.VisionOSVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .visionOS, version: version.version)
     }
@@ -330,9 +264,6 @@ public struct SupportedPlatform: Equatable, Sendable {
     ///     representation of two or three dot-separated integers, such as `1.0.0`.
     /// - Returns: A `SupportedPlatform` instance.
     @available(_PackageDescription, introduced: 5.9)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func visionOS(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .visionOS, version: SupportedPlatform.VisionOSVersion(string: versionString).version)
     }
@@ -341,9 +272,6 @@ public struct SupportedPlatform: Equatable, Sendable {
     ///
     /// - Parameter version: The minimum deployment target that the package supports.
     @available(_PackageDescription, introduced: 5.5)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func driverKit(_ version: SupportedPlatform.DriverKitVersion) -> SupportedPlatform {
         return SupportedPlatform(platform: .driverKit, version: version.version)
     }
@@ -354,9 +282,6 @@ public struct SupportedPlatform: Equatable, Sendable {
     /// - Parameter versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as `19.0.1`.
     /// - Returns: A `SupportedPlatform` instance.
     @available(_PackageDescription, introduced: 5.5)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func driverKit(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .driverKit, version: SupportedPlatform.DriverKitVersion(string: versionString).version)
     }
@@ -370,9 +295,6 @@ public struct SupportedPlatform: Equatable, Sendable {
     ///   - versionString: The minimum deployment target as a string representation of two or three dot-separated integers, such as `19.0.1`.
     /// - Returns: A `SupportedPlatform` instance.
     @available(_PackageDescription, introduced: 5.6)
-    #if SWIFTPM_CONSTEXPR_MANIFESTS
-    @ConstExpr(registrationAccess: .package)
-    #endif
     public static func custom(_ platformName: String,  versionString: String) -> SupportedPlatform {
         do {
             try CustomPlatformVersion.validateVersion(versionString)
