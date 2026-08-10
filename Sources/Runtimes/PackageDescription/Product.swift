@@ -10,6 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+internal import ConstExpr
+#endif
+
 /// The object that defines a package product.
 ///
 /// A package product defines an externally visible build artifact that's
@@ -86,6 +90,9 @@ public class Product {
     /// The library product of a Swift package.
     public final class Library: Product, @unchecked Sendable {
         /// The different types of a library product.
+        #if SWIFTPM_CONSTEXPR_MANIFESTS
+        @ConstExpr(registrationAccess: .package)
+        #endif
         public enum LibraryType: String {
             /// A statically linked library.
             case `static`
@@ -139,6 +146,9 @@ public class Product {
     ///   - targets: The targets that are bundled into a library product.
     ///
     /// - Returns: A `Product` instance.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func library(
         name: String,
         type: Library.LibraryType? = nil,
@@ -153,6 +163,9 @@ public class Product {
     ///   - name: The name of the executable product.
     ///   - targets: The targets to bundle into an executable product.
     /// - Returns: A `Product` instance.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func executable(
         name: String,
         targets: [String]
@@ -181,6 +194,9 @@ public class Product {
     ///   - targets: The plugin targets to vend as a product.
     /// - Returns: A `Product` instance.
     @available(_PackageDescription, introduced: 5.5)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func plugin(
         name: String,
         targets: [String]

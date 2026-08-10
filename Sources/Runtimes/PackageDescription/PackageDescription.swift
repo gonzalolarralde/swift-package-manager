@@ -16,6 +16,10 @@
 #endif
 @_implementationOnly import Foundation
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+internal import ConstExpr
+#endif
+
 /// The configuration of a Swift package.
 ///
 /// Pass configuration options as parameters to your package's initializer
@@ -305,6 +309,9 @@ public final class Package {
     ///   - cLanguageStandard: The C language standard to use for all C targets in this package.
     ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
     @available(_PackageDescription, introduced: 6)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public init(
         name: String,
         defaultLocalization: LanguageTag? = nil,
@@ -351,6 +358,9 @@ public final class Package {
     ///   - cLanguageStandard: The C language standard to use for all C targets in this package.
     ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
     @available(_PackageDescription, introduced: 6.1)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public init(
         name: String,
         defaultLocalization: LanguageTag? = nil,
@@ -381,6 +391,13 @@ public final class Package {
     }
 
     private func registerExitHandler() {
+        #if SWIFTPM_CONSTEXPR_MANIFESTS
+        if let session = ConstExprManifestSessionScope.current {
+            session.recordPackageInitializer()
+            return
+        }
+        #endif
+
         // Add a custom exit handler to cause the package's JSON representation
         // to be dumped at exit, if requested.  Emitting it to a separate file
         // descriptor from stdout keeps any of the manifest's stdout output from
@@ -449,6 +466,9 @@ extension LanguageTag: ExpressibleByStringLiteral {
     /// Creates an instance initialized to the given value.
     ///
     /// - Parameter value: The value of the new instance.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public init(stringLiteral value: String) {
         tag = value
     }
@@ -493,6 +513,9 @@ public enum SystemPackageProvider {
     /// - Parameter packages: The list of package names.
     ///
     /// - Returns: A package provider.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func brew(_ packages: [String]) -> SystemPackageProvider {
         return .brewItem(packages)
     }
@@ -503,6 +526,9 @@ public enum SystemPackageProvider {
     /// - Parameter packages: The list of package names.
     ///
     /// - Returns: A package provider.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func apt(_ packages: [String]) -> SystemPackageProvider {
         return .aptItem(packages)
     }
@@ -515,6 +541,9 @@ public enum SystemPackageProvider {
     ///
     /// - Returns: A package provider.
     @available(_PackageDescription, introduced: 5.3)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func yum(_ packages: [String]) -> SystemPackageProvider {
         return .yumItem(packages)
     }
@@ -532,6 +561,12 @@ public enum SystemPackageProvider {
 }
 
 // MARK: - Package Dumping
+
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+func constExprManifestToJSON(_ package: Package) -> String {
+    manifestToJSON(package)
+}
+#endif
 
 private func manifestToJSON(_ package: Package) -> String {
     struct Output: Codable {

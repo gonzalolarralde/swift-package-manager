@@ -10,8 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+internal import ConstExpr
+#endif
+
 /// The supported C language standard you use to compile C sources in the
 /// package.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public enum CLanguageStandard: String {
 
     /// The identifier for the ISO C 1989 language standard.
@@ -89,6 +96,9 @@ public enum CLanguageStandard: String {
 /// Aliases are available for some C++ language standards. For example,
 /// use `cxx98` or `cxx03` for the "ISO C++ 1998 with amendments" standard.
 /// To learn more, see [C++ Support in Clang](https://clang.llvm.org/cxx_status.html).
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public enum CXXLanguageStandard: String {
 
     /// The identifier for the ISO C++ 1998 language standard with amendments.
@@ -149,6 +159,9 @@ public enum CXXLanguageStandard: String {
 }
 
 /// The Swift language mode used to compile Swift sources in the package
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public enum SwiftLanguageMode {
     /// The identifier for the Swift 3 language version.
     @available(_PackageDescription, introduced: 4, obsoleted: 5)

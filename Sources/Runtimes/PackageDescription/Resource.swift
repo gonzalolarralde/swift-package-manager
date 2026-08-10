@@ -10,6 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+internal import ConstExpr
+#endif
+
 /// A resource to bundle with the Swift package.
 ///
 /// If a Swift package declares a Swift tools version of 5.3 or later, it can
@@ -35,6 +39,9 @@
 public struct Resource: Sendable {
 
     /// Defines the explicit type of localization for resources.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public enum Localization: String, Sendable {
 
         /// A constant that represents default localization.
@@ -75,6 +82,9 @@ public struct Resource: Sendable {
     ///   - path: The path for a resource.
     ///   - localization: The explicit localization type for the resource.
     /// - Returns: A `Resource` instance.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func process(_ path: String, localization: Localization? = nil) -> Resource {
         return Resource(rule: "process", path: path, localization: localization)
     }
@@ -91,6 +101,9 @@ public struct Resource: Sendable {
     ///
     /// - Parameter path: The path for a resource.
     /// - Returns: A `Resource` instance.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func copy(_ path: String) -> Resource {
         return Resource(rule: "copy", path: path, localization: nil)
     }
@@ -114,6 +127,9 @@ public struct Resource: Sendable {
     /// - Parameter path: The path for a resource.
     /// - Returns: A `Resource` instance.
     @available(_PackageDescription, introduced: 5.9)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func embedInCode(_ path: String) -> Resource {
         return Resource(rule: "embedInCode", path: path, localization: nil)
     }

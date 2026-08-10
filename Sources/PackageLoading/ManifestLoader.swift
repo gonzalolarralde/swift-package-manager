@@ -183,6 +183,12 @@ public protocol ManifestLoaderDelegate: Sendable {
     )
 }
 
+/// Package-internal capability used by Workspace to configure delegates on
+/// manifest-loader implementations without exposing that concern publicly.
+package protocol ManifestLoaderDelegateConfigurable: AnyObject {
+    var delegate: ManifestLoaderDelegate? { get set }
+}
+
 // loads a manifest given a package root path
 // this will first find the most appropriate manifest file in the package directory
 // bases on the toolchain's tools-version and proceed to load that manifest
@@ -1011,6 +1017,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
     }
 }
+
+extension ManifestLoader: ManifestLoaderDelegateConfigurable {}
 
 extension ManifestLoader {
     struct CacheKey: Hashable {

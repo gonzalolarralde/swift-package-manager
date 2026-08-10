@@ -12,6 +12,10 @@
 
 @_implementationOnly import Foundation
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+internal import ConstExpr
+#endif
+
 /// The basic building block of a Swift package.
 ///
 /// Each target contains a set of source files that Swift Package Manager compiles into a module
@@ -42,6 +46,9 @@ public final class Target {
     }
 
     /// The different types of a target's dependency on another entity.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public enum Dependency: Sendable {
         /// A dependency on a target.
         ///
@@ -220,6 +227,9 @@ public final class Target {
     
     /// A plug-in used in a target.
     @available(_PackageDescription, introduced: 5.5)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public enum PluginUsage {
         /// Specifies the use of a plug-in product in a package dependency.
         ///
@@ -568,6 +578,9 @@ public final class Target {
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target
     @available(_PackageDescription, introduced: 5.9)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func target(
         name: String,
         dependencies: [Dependency] = [],
@@ -740,6 +753,9 @@ public final class Target {
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target
     @available(_PackageDescription, introduced: 5.9)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func executableTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -986,6 +1002,9 @@ public final class Target {
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target.
     @available(_PackageDescription, introduced: 5.9)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func testTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -1034,6 +1053,9 @@ public final class Target {
     ///     that is, values like `../Foo` or `/Foo` are invalid.
     ///   - pkgConfig: The name of the `pkg-config` file for this system library.
     ///   - providers: The providers for this system library.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func systemLibrary(
         name: String,
         path: String? = nil,
@@ -1064,6 +1086,9 @@ public final class Target {
     ///   - checksum: The checksum of the archive file that contains the binary
     ///     artifact.
     @available(_PackageDescription, introduced: 5.3)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func binaryTarget(
         name: String,
         url: String,
@@ -1092,6 +1117,9 @@ public final class Target {
     ///     a binary artifact or to an archive file that contains the binary
     ///     artifact at its root.
     @available(_PackageDescription, introduced: 5.3)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func binaryTarget(
         name: String,
         path: String
@@ -1214,6 +1242,9 @@ public final class Target {
     ///   - packageAccess: Allows access to package symbols from other targets in the package.
     /// - Returns: A `Target` instance.
     @available(_PackageDescription, introduced: 5.9)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func plugin(
         name: String,
         capability: PluginCapability,
@@ -1235,6 +1266,8 @@ public final class Target {
             pluginCapability: capability)
     }
 }
+
+
 
 extension Target.Dependency {
     @available(_PackageDescription, obsoleted: 5.7, message: "use .product(name:package:condition) instead.")
@@ -1295,6 +1328,9 @@ extension Target.Dependency {
     ///     platform.
     /// - Returns: A `Target.Dependency` instance.
 @available(_PackageDescription, introduced: 5.3)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func target(name: String, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
         return .targetItem(name: name, condition: condition)
     }
@@ -1328,6 +1364,9 @@ extension Target.Dependency {
     ///       dependency for a specific platform.
     /// - Returns: A `Target.Dependency` instance.
 @available(_PackageDescription, introduced: 5.7)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func product(
       name: String,
       package: String,
@@ -1350,6 +1389,9 @@ extension Target.Dependency {
     ///     platform.
     /// - Returns: A `Target.Dependency` instance.
 @available(_PackageDescription, introduced: 5.3)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func byName(name: String, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
         return .byNameItem(name: name, condition: condition)
     }
@@ -1382,6 +1424,9 @@ public struct TargetDependencyCondition: Sendable {
     ///
     /// - Parameter platforms: The applicable platforms for this target dependency condition.
     @available(_PackageDescription, introduced: 5.7)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func when(
         platforms: [Platform]
     ) -> TargetDependencyCondition? {
@@ -1393,6 +1438,9 @@ public struct TargetDependencyCondition: Sendable {
     /// - Parameter platforms: The applicable platforms for this target dependency condition.
     /// - Parameter traits: The applicable traits for this target dependency condition.
     @available(_PackageDescription, introduced: 6.1)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func when(
         platforms: [Platform],
         traits: Set<String>
@@ -1404,6 +1452,9 @@ public struct TargetDependencyCondition: Sendable {
     ///
     /// - Parameter traits: The applicable traits for this target dependency condition.
     @available(_PackageDescription, introduced: 6.1)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func when(
         traits: Set<String>
     ) -> TargetDependencyCondition? {
@@ -1420,6 +1471,9 @@ extension Target.PluginCapability {
     ///
     ///  - Returns: A plug-in capability that defines a build tool.
     @available(_PackageDescription, introduced: 5.5)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func buildTool() -> Target.PluginCapability {
         return .buildTool
     }
@@ -1530,6 +1584,9 @@ extension Target.PluginUsage {
     /// - Parameter name: The name of the plugin target.
     /// - Returns: A `PluginUsage` instance.
     @available(_PackageDescription, introduced: 5.5)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public static func plugin(name: String) -> Target.PluginUsage {
         return .plugin(name: name, package: nil)
     }
@@ -1545,6 +1602,9 @@ extension Target.Dependency: ExpressibleByStringLiteral {
     /// Creates a target dependency instance with the given value.
     ///
     /// - Parameter value: A string literal.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public init(stringLiteral value: String) {
         self = .byNameItem(name: value, condition: nil)
     }
@@ -1557,6 +1617,9 @@ extension Target.PluginUsage: ExpressibleByStringLiteral {
     /// Specifies use of a plugin target in the same package.
     ///
     /// - Parameter value: A string literal.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public init(stringLiteral value: String) {
         self = .plugin(name: value, package: nil)
     }

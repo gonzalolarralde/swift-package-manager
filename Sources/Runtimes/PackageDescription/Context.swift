@@ -10,6 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+internal import ConstExpr
+#endif
+
 /// The context information for a Swift package.
 ///
 /// The context encapsulates states that are known when Swift Package Manager interprets the package manifest,
@@ -48,9 +52,31 @@ public struct Context: Sendable {
 @available(_PackageDescription, introduced: 6.0)
 public struct GitInformation: Sendable {
     /// The version tag currently checked out, if available.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public let currentTag: String?
     /// The commit currently checked out.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public let currentCommit: String
     /// Whether or not there are uncommitted changes in the current repository.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public let hasUncommittedChanges: Bool
+
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @_spi(ConstExprManifest)
+    public init(
+        currentTag: String?,
+        currentCommit: String,
+        hasUncommittedChanges: Bool
+    ) {
+        self.currentTag = currentTag
+        self.currentCommit = currentCommit
+        self.hasUncommittedChanges = hasUncommittedChanges
+    }
+    #endif
 }
