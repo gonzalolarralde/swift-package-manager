@@ -165,6 +165,9 @@ public final class Target {
     ///
     /// In this version of SwiftPM, only build tool and command plug-ins are supported;
     /// this enumeration will be extended as new plug-in capabilities are added.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public enum PluginCapability {
         /// Specifies that the plug-in provides a build tool capability.
         ///
@@ -1389,6 +1392,15 @@ public struct TargetDependencyCondition: Sendable {
         self.traits = traits
     }
 
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @_spi(ConstExprManifest)
+    public static func _constExprLegacyWhen(
+        platforms: [Platform]
+    ) -> TargetDependencyCondition {
+        TargetDependencyCondition(platforms: platforms, traits: nil)
+    }
+    #endif
+
     /// Creates a target dependency condition.
     ///
     /// - Parameter platforms: The applicable platforms for this target dependency condition.
@@ -1454,6 +1466,9 @@ extension Target.PluginCapability {
 
 /// The intended use case of the command plug-in.
 @available(_PackageDescription, introduced: 5.6)
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public enum PluginCommandIntent {
     /// The plug-in generates documentation.
     ///
@@ -1505,6 +1520,9 @@ public extension PluginCommandIntent {
 ///
 /// Supported types are ``allowNetworkConnections(scope:reason:)`` and ``writeToPackageDirectory(reason:)``.
 @available(_PackageDescription, introduced: 5.6)
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public enum PluginPermission {
     /// Create a permission to make network connections.
     ///
@@ -1528,6 +1546,9 @@ public enum PluginPermission {
 ///
 /// The scope can be none, local connections only, or all connections.
 @available(_PackageDescription, introduced: 5.9)
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public enum PluginNetworkPermissionScope {
     /// Do not allow network access.
     case none

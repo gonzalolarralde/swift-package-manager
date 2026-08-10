@@ -191,13 +191,13 @@ final class ConstExprLegacyManifestLoaderTests: XCTestCase {
         XCTAssertEqual(fallback.reasonCode, "unresolved-binding")
     }
 
-    func testToolsVersionBeforeFiveNineRemainsAnExplicitMiss() throws {
+    func testToolsVersionBeforeFiveZeroRemainsAnExplicitMiss() throws {
         let fallback = try ConstExprManifestTestSupport.fallback(
             """
             import PackageDescription
             let package = Package(name: "TooOld")
             """,
-            toolsVersion: .v5_8
+            toolsVersion: .v4_2
         )
 
         XCTAssertEqual(fallback.reasonCode, "unsupported-tools-version")

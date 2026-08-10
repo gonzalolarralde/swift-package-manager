@@ -12,7 +12,7 @@ part of SwiftPM's public library products.
 
 ## Pipeline
 
-For a tools-version 5.9-or-newer manifest, the loader:
+For a tools-version 5.0-or-newer manifest, the loader:
 
 1. Parses the original source and selects active `#if` regions using the host
    toolchain's compiler flags, SDK, target, PackageDescription version, and
@@ -54,17 +54,18 @@ Typed and string-valued platform versions, including `custom`, are supported.
 
 ## Supported context and API surface
 
-The initial registry targets current, non-obsoleted PackageDescription APIs for
+The registry targets current, non-obsoleted PackageDescription APIs for
 packages, products, targets, dependencies, versions, platforms, traits,
 resources, plug-in usages, and build settings. It models structural Optional,
 Array, Dictionary, Set, range, and tuple values rather than registering every
 concrete container type.
 
-PackageDescription 5.9 and 5.10 use a small availability-bounded adapter for
-the legacy `Package` initializer. The adapter preserves its labels, defaults,
-and overload preference while constructing the equivalent current model. At
-tools version 6.0 and newer, deprecated legacy spelling remains a fast-path
-miss so the Swift compiler supplies its diagnostic.
+PackageDescription 5.0 through 5.10 use availability-bounded adapters for
+historical `Package` and `Target` factories, dependency requirements, and
+conditions. Each adapter preserves its source-era labels and defaults while
+constructing the equivalent current model. Once an old spelling becomes
+deprecated or obsolete, it is excluded so the Swift compiler remains the
+source of diagnostics.
 
 Active manifests can read `Context.packageDirectory`, `Context.environment`,
 and `Context.gitInformation`. SwiftPM injects these values without exposing

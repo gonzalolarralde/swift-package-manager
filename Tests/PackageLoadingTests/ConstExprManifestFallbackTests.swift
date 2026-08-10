@@ -137,6 +137,46 @@ final class ConstExprManifestFallbackTests: XCTestCase {
         XCTAssertEqual(manifest.displayName, "Six")
     }
 
+    func testToolsVersionFiveMatchesExecution() async throws {
+        let toolchain = try UserToolchain.default
+        let loader = ConstExprFallbackManifestLoader(
+            constExprLoader: ConstExprManifestLoader(toolchain: toolchain),
+            executingLoader: ManifestLoader(toolchain: toolchain),
+            mode: .crosscheck
+        )
+        let fileSystem = InMemoryFileSystem()
+        let path = AbsolutePath("/ToolsVersionFive/Package.swift")
+        try fileSystem.writeFileContents(
+            path,
+            string: """
+            // swift-tools-version: 5.0
+            import PackageDescription
+            let linux = BuildSettingCondition.when(platforms: [.linux])
+            let package = Package(
+                name: "Five",
+                products: [.library(name: "Five", targets: ["Five"])],
+                dependencies: [
+                    .package(url: "https://example.test/remote.git", .branch("main")),
+                ],
+                targets: [
+                    .target(
+                        name: "Five",
+                        swiftSettings: [.define("LINUX", linux)]
+                    ),
+                ]
+            )
+            """
+        )
+
+        let manifest = try await load(
+            loader,
+            path: path,
+            toolsVersion: .v5,
+            fileSystem: fileSystem
+        )
+        XCTAssertEqual(manifest.displayName, "Five")
+    }
+
     func testCompilerSuppliesDiagnosticsAfterFastPathMiss() async throws {
         let toolchain = try UserToolchain.default
         let loader = ConstExprFallbackManifestLoader(

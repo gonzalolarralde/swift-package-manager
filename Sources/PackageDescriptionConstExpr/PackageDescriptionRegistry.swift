@@ -52,7 +52,11 @@ let generatedPackageDescriptionRegistry = #constExprRegistry(
     Target.macro(
         name:dependencies:path:exclude:sources:packageAccess:swiftSettings:linkerSettings:plugins:
     ),
+    Target.PluginCapability.self,
     Target.PluginCapability.buildTool as () -> Target.PluginCapability,
+    PluginCommandIntent.self,
+    PluginPermission.self,
+    PluginNetworkPermissionScope.self,
     Target.PluginUsage.plugin(name:),
     Target.PluginUsage.init(stringLiteral:),
     Target.PluginUsage.self,
@@ -180,8 +184,12 @@ private let contextRegistrations: [ConstExprRegistration] = [
     },
 ]
 
-private let manualRegistrations: [ConstExprRegistration] = [
-    legacyPackageInitializerRegistration,
+private let manualRegistrations: [ConstExprRegistration] =
+    legacyPackageRegistrations
+    + legacyTargetRegistrations
+    + legacyDependencyRegistrations
+    + rawRepresentableRegistrations
+    + [
     versionRangeRegistration(
         name: "upToNextMajor",
         transform: { version in
@@ -224,102 +232,35 @@ private let manualRegistrations: [ConstExprRegistration] = [
     ),
 ]
 
-/// PackageDescription 5.3 through 5.10 expose the legacy
-/// `swiftLanguageVersions:` initializer. Calling that deprecated declaration
-/// from this host module would itself produce a warning, so this adapter
-/// preserves its source signature while constructing the equivalent current
-/// model through `swiftLanguageModes:`.
-private let legacyPackageInitializerRegistration = ConstExprRegistration.labelKeyed(
-    moduleName: "PackageDescription",
-    name: "Package",
-    kind: .initializer,
-    ownerType: Package.self,
-    parameterLabels: [
-        "name",
-        "defaultLocalization",
-        "platforms",
-        "pkgConfig",
-        "providers",
-        "products",
-        "dependencies",
-        "targets",
-        "swiftLanguageVersions",
-        "cLanguageStandard",
-        "cxxLanguageStandard",
-    ],
-    parameterTypes: [
-        String.self,
-        LanguageTag?.self,
-        [SupportedPlatform]?.self,
-        String?.self,
-        [SystemPackageProvider]?.self,
-        [Product].self,
-        [Package.Dependency].self,
-        [Target].self,
-        [SwiftLanguageMode]?.self,
-        CLanguageStandard?.self,
-        CXXLanguageStandard?.self,
-    ],
-    parameterTypeDescriptors: [
-        .inferred(String.self),
-        .inferred(LanguageTag?.self),
-        .inferred([SupportedPlatform]?.self),
-        .inferred(String?.self),
-        .inferred([SystemPackageProvider]?.self),
-        .inferred([Product].self),
-        .inferred([Package.Dependency].self),
-        .inferred([Target].self),
-        .optional(.array(.inferred(
-            SwiftLanguageMode.self,
-            sourceName: "PackageDescription.SwiftVersion"
-        ))),
-        .inferred(CLanguageStandard?.self),
-        .inferred(CXXLanguageStandard?.self),
-    ],
-    defaultedParameters: Set(1...10),
-    resultType: Package.self,
-    availability: [
-        .init(
-            domain: "_PackageDescription",
-            introduced: .init(major: 5, minor: 3),
-            deprecated: .init(major: 6)
-        ),
-    ],
-    isDisfavoredOverload: true,
-    declarationID: "PackageDescription.Package.init(name:defaultLocalization:platforms:pkgConfig:providers:products:dependencies:targets:swiftLanguageVersions:cLanguageStandard:cxxLanguageStandard:)"
-) { receiver, arguments in
-    guard receiver == nil else { throw ContextAdapterError.invalidInvocation }
-    return ConstExprValue(Package(
-        name: try arguments.require("name", as: String.self),
-        defaultLocalization: try arguments.optional(
-            "defaultLocalization",
-            as: LanguageTag?.self
-        ) ?? nil,
-        platforms: try arguments.optional("platforms", as: [SupportedPlatform]?.self) ?? nil,
-        pkgConfig: try arguments.optional("pkgConfig", as: String?.self) ?? nil,
-        providers: try arguments.optional(
-            "providers",
-            as: [SystemPackageProvider]?.self
-        ) ?? nil,
-        products: try arguments.optional("products", as: [Product].self) ?? [],
-        dependencies: try arguments.optional(
-            "dependencies",
-            as: [Package.Dependency].self
-        ) ?? [],
-        targets: try arguments.optional("targets", as: [Target].self) ?? [],
-        swiftLanguageModes: try arguments.optional(
-            "swiftLanguageVersions",
-            as: [SwiftLanguageMode]?.self
-        ) ?? nil,
-        cLanguageStandard: try arguments.optional(
-            "cLanguageStandard",
-            as: CLanguageStandard?.self
-        ) ?? nil,
-        cxxLanguageStandard: try arguments.optional(
-            "cxxLanguageStandard",
-            as: CXXLanguageStandard?.self
-        ) ?? nil
-    ))
+private let rawRepresentableRegistrations: [ConstExprRegistration] = [
+    stringRawRepresentableInitializer(CLanguageStandard.self),
+    stringRawRepresentableInitializer(CXXLanguageStandard.self),
+]
+
+private func stringRawRepresentableInitializer<Value>(
+    _ type: Value.Type
+) -> ConstExprRegistration where Value: RawRepresentable, Value.RawValue == String {
+    let reflectedName = String(reflecting: type)
+    let sourceName = reflectedName.split(separator: ".").last.map(String.init)
+        ?? reflectedName
+    return ConstExprRegistration(
+        moduleName: "PackageDescription",
+        name: sourceName,
+        kind: .initializer,
+        ownerType: type,
+        parameterLabels: ["rawValue"],
+        parameterTypes: [String.self],
+        resultType: Value?.self,
+        declarationID: "PackageDescription.\(sourceName).init(rawValue:)"
+    ) { receiver, arguments in
+        guard receiver == nil,
+              arguments.count == 1,
+              let rawValue = arguments[0]
+        else {
+            throw ContextAdapterError.invalidInvocation
+        }
+        return ConstExprValue(Value(rawValue: try rawValue.require(String.self)))
+    }
 }
 
 private func versionRangeRegistration(

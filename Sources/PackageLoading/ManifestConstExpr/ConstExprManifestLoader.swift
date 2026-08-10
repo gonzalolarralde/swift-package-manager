@@ -144,10 +144,10 @@ package final class ConstExprManifestLoader: ManifestLoaderProtocol {
         fileSystem: FileSystem,
         delegateQueue: DispatchQueue?
     ) throws -> Manifest {
-        guard manifestToolsVersion >= .v5_9 else {
+        guard manifestToolsVersion >= .v5 else {
             throw ConstExprManifestFallback(
                 reasonCode: "unsupported-tools-version",
-                detail: "the initial registry models PackageDescription 5.9-and-newer APIs"
+                detail: "the registry models PackageDescription 5.0-and-newer APIs"
             )
         }
         let configuration = try configurationProvider.configuration(
