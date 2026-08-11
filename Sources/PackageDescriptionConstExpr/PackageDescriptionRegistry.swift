@@ -39,6 +39,36 @@ func withPackageDescriptionEvaluationContext<Result>(
 /// Filled by direct `@ConstExpr(registrationAccess: .package)` peers in
 /// PackageDescription. Context registrations are composed with these peers
 /// once, while their per-evaluation values remain task-local.
+private let generatedPackageDependencyRegistry = #constExprRegistry(
+    for: Package.Dependency.self,
+    extensions: ["FileSystem", "SourceControl", "Registry"]
+)
+
+private let generatedTargetDependencyRegistry = #constExprRegistry(
+    for: Target.Dependency.self,
+    extensions: ["Factories", "StringLiterals"]
+)
+
+private let generatedPluginCapabilityRegistry = #constExprRegistry(
+    for: Target.PluginCapability.self,
+    extensions: ["Factories"]
+)
+
+private let generatedPluginUsageRegistry = #constExprRegistry(
+    for: Target.PluginUsage.self,
+    extensions: ["Factories", "StringLiterals"]
+)
+
+private let generatedVersionRegistry = #constExprRegistry(
+    for: Version.self,
+    extensions: ["StringLiterals"]
+)
+
+private let generatedLanguageTagRegistry = #constExprRegistry(
+    for: LanguageTag.self,
+    extensions: ["StringLiterals"]
+)
+
 let generatedPackageDescriptionRegistry = #constExprRegistry(
     Package.init(
         name:defaultLocalization:platforms:pkgConfig:providers:products:dependencies:targets:swiftLanguageModes:cLanguageStandard:cxxLanguageStandard:
@@ -52,51 +82,11 @@ let generatedPackageDescriptionRegistry = #constExprRegistry(
     Target.macro(
         name:dependencies:path:exclude:sources:packageAccess:swiftSettings:linkerSettings:plugins:
     ),
-    Target.PluginCapability.self,
-    Target.PluginCapability.buildTool as () -> Target.PluginCapability,
     PluginCommandIntent.self,
     PluginPermission.self,
     PluginNetworkPermissionScope.self,
-    Target.PluginUsage.plugin(name:),
-    Target.PluginUsage.init(stringLiteral:),
-    Target.PluginUsage.self,
-    Target.Dependency.self,
-    Target.Dependency.target(name:condition:),
-    Target.Dependency.product(name:package:moduleAliases:condition:),
-    Target.Dependency.byName(name:condition:),
-    Target.Dependency.init(stringLiteral:),
-    Package.Dependency.package(path:),
-    Package.Dependency.package(path:traits:),
-    Package.Dependency.package(name:path:),
-    Package.Dependency.package(name:path:traits:),
-    Package.Dependency.package(url:from:),
-    Package.Dependency.package(url:from:traits:),
-    Package.Dependency.package(url:_:) as (String, Range<Version>) -> Package.Dependency,
-    Package.Dependency.package(url:_:traits:)
-        as (String, Range<Version>, Set<Package.Dependency.Trait>) -> Package.Dependency,
-    Package.Dependency.package(url:_:) as (String, ClosedRange<Version>) -> Package.Dependency,
-    Package.Dependency.package(url:_:traits:)
-        as (String, ClosedRange<Version>, Set<Package.Dependency.Trait>) -> Package.Dependency,
-    Package.Dependency.package(url:branch:),
-    Package.Dependency.package(url:branch:traits:),
-    Package.Dependency.package(url:revision:),
-    Package.Dependency.package(url:revision:traits:),
-    Package.Dependency.package(url:exact:),
-    Package.Dependency.package(url:exact:traits:),
-    Package.Dependency.package(id:from:),
-    Package.Dependency.package(id:from:traits:),
-    Package.Dependency.package(id:exact:),
-    Package.Dependency.package(id:exact:traits:),
-    Package.Dependency.package(id:_:) as (String, Range<Version>) -> Package.Dependency,
-    Package.Dependency.package(id:_:traits:)
-        as (String, Range<Version>, Set<Package.Dependency.Trait>) -> Package.Dependency,
-    Package.Dependency.package(id:_:) as (String, ClosedRange<Version>) -> Package.Dependency,
-    Package.Dependency.package(id:_:traits:)
-        as (String, ClosedRange<Version>, Set<Package.Dependency.Trait>) -> Package.Dependency,
     Package.Dependency.Trait.self,
     Package.Dependency.Trait.Condition.when(traits:),
-    Version.init(stringLiteral:),
-    LanguageTag.init(stringLiteral:),
     CLanguageStandard.self,
     CXXLanguageStandard.self,
     SwiftLanguageMode.self,
@@ -125,6 +115,12 @@ let generatedPackageDescriptionRegistry = #constExprRegistry(
     \GitInformation.currentCommit,
     \GitInformation.hasUncommittedChanges
 )
+.appending(contentsOf: generatedPackageDependencyRegistry)
+.appending(contentsOf: generatedTargetDependencyRegistry)
+.appending(contentsOf: generatedPluginCapabilityRegistry)
+.appending(contentsOf: generatedPluginUsageRegistry)
+.appending(contentsOf: generatedVersionRegistry)
+.appending(contentsOf: generatedLanguageTagRegistry)
 
 private let contextRegistrations: [ConstExprRegistration] = [
     ConstExprRegistration(

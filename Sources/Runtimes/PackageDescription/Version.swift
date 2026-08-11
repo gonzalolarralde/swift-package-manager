@@ -10,6 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+internal import ConstExpr
+#endif
+
 /// A version according to the semantic versioning specification.
 ///
 /// A package version consists of three integers separated by periods, for example `1.0.0`. It must conform to the semantic versioning standard in order to ensure
@@ -35,6 +39,9 @@
 /// Increase the third digit of a version, or _patch version_, if you're making
 /// a backward-compatible bug fix. This allows clients to benefit from bugfixes
 /// to your package without incurring any maintenance burden.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct Version: Sendable {
 
     /// The major version according to the semantic versioning standard.
@@ -64,6 +71,9 @@ public struct Version: Sendable {
     /// - Precondition: `major >= 0 && minor >= 0 && patch >= 0`.
     /// - Precondition: `prereleaseIdentifiers` can contain only ASCII alpha-numeric characters and "-".
     /// - Precondition: `buildMetadataIdentifiers` can contain only ASCII alpha-numeric characters and "-".
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExprIgnored
+    #endif
     public init(
         _ major: Int,
         _ minor: Int,

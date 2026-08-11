@@ -1258,7 +1258,10 @@ public final class Target {
 
 
 #if SWIFTPM_CONSTEXPR_MANIFESTS
-@ConstExprMembers(registrationAccess: .package)
+@ConstExprMembers(
+    named: "Factories",
+    registrationAccess: ConstExprRegistrationAccess.package
+)
 #endif
 extension Target.Dependency {
     @available(_PackageDescription, obsoleted: 5.7, message: "use .product(name:package:condition) instead.")
@@ -1448,7 +1451,10 @@ public struct TargetDependencyCondition: Sendable {
 }
 
 #if SWIFTPM_CONSTEXPR_MANIFESTS
-@ConstExprMembers(registrationAccess: .package)
+@ConstExprMembers(
+    named: "Factories",
+    registrationAccess: ConstExprRegistrationAccess.package
+)
 #endif
 extension Target.PluginCapability {
     
@@ -1573,7 +1579,10 @@ public enum PluginNetworkPermissionScope {
 }
 
 #if SWIFTPM_CONSTEXPR_MANIFESTS
-@ConstExprMembers(registrationAccess: .package)
+@ConstExprMembers(
+    named: "Factories",
+    registrationAccess: ConstExprRegistrationAccess.package
+)
 #endif
 extension Target.PluginUsage {
     /// Specifies use of a plugin target in the same package.
@@ -1592,7 +1601,10 @@ extension Target.PluginUsage {
 /// `ExpressibleByStringLiteral` conformance.
 ///
 #if SWIFTPM_CONSTEXPR_MANIFESTS
-@ConstExprMembers(registrationAccess: .package)
+@ConstExprMembers(
+    named: "StringLiterals",
+    registrationAccess: ConstExprRegistrationAccess.package
+)
 #endif
 extension Target.Dependency: ExpressibleByStringLiteral {
 
@@ -1607,7 +1619,10 @@ extension Target.Dependency: ExpressibleByStringLiteral {
 /// `ExpressibleByStringLiteral` conformance.
 ///
 #if SWIFTPM_CONSTEXPR_MANIFESTS
-@ConstExprMembers(registrationAccess: .package)
+@ConstExprMembers(
+    named: "StringLiterals",
+    registrationAccess: ConstExprRegistrationAccess.package
+)
 #endif
 extension Target.PluginUsage: ExpressibleByStringLiteral {
 

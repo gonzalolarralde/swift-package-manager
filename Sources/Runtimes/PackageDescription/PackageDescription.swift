@@ -433,6 +433,9 @@ public final class Package {
 ///
 /// To learn more about the IETF worldwide standard for language tags, see
 /// [RFC5646](https://tools.ietf.org/html/rfc5646).
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct LanguageTag: Hashable {
 
     /// An IETF BCP 47 standard language tag.
@@ -462,7 +465,10 @@ extension LanguageTag: RawRepresentable {
 
 /// ExpressibleByStringLiteral implementation.
 #if SWIFTPM_CONSTEXPR_MANIFESTS
-@ConstExprMembers(registrationAccess: .package)
+@ConstExprMembers(
+    named: "StringLiterals",
+    registrationAccess: ConstExprRegistrationAccess.package
+)
 #endif
 extension LanguageTag: ExpressibleByStringLiteral {
     

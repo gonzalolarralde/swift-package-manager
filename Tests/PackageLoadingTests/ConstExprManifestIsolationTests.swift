@@ -79,6 +79,18 @@ final class ConstExprManifestIsolationTests: XCTestCase {
         XCTAssertEqual(fallback.reasonCode, "unsupported-source")
     }
 
+    func testPreconditionedVersionInitializerIsNeverSpeculated() throws {
+        let fallback = try ConstExprManifestTestSupport.fallback(
+            """
+            import PackageDescription
+            let invalid = Version(-1, 0, 0)
+            let package = Package(name: "InvalidVersion")
+            """
+        )
+
+        XCTAssertEqual(fallback.reasonCode, "unsupported-source")
+    }
+
     func testMalformedInactiveRegionDoesNotBlockFastPath() throws {
         let manifest = try ConstExprManifestTestSupport.parse(
             """
