@@ -1143,10 +1143,10 @@ func swiftSyntaxDependencies(_ names: [String]) -> [Target.Dependency] {
 /// When not using local dependencies, the branch to use for llbuild and TSC repositories.
 let relatedDependenciesBranch = "main"
 
-// Prototype-only local dependency. CMake/bootstrap builds leave the
+// Prototype-only external dependency. CMake/bootstrap builds leave the
 // SWIFTPM_CONSTEXPR_MANIFESTS condition unset and do not consume this graph.
 package.dependencies += [
-    .package(name: "swift-constexpr", path: "../../swift-constexpr"),
+    .package(url: "https://github.com/gonzalolarralde/swift-constexpr.git", branch: "main"),
 ]
 
 if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
