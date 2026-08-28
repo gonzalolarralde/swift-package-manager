@@ -941,9 +941,15 @@ public final class SwiftCommandState {
         return rootManifests.values.map { $0.toolsVersion }.min()
     }
 
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    func getManifestLoader() throws -> any ManifestLoaderProtocol {
+        try self._manifestLoader.get()
+    }
+    #else
     func getManifestLoader() throws -> ManifestLoader {
         try self._manifestLoader.get()
     }
+    #endif
 
     public func canUseCachedBuildManifest(_ traitConfiguration: TraitConfiguration = .default, buildDescriptionPath: AbsolutePath) async throws -> Bool {
         if !self.options.caching.cacheBuildManifest {
@@ -1209,7 +1215,7 @@ public final class SwiftCommandState {
         )
     })
 
-    private lazy var _manifestLoader: Result<ManifestLoader, Swift.Error> = Result(catching: {
+    private func createExecutingManifestLoader() throws -> ManifestLoader {
         let cachePath: AbsolutePath? = switch (
             self.options.caching.shouldDisableManifestCaching,
             self.options.caching.manifestCachingMode
@@ -1239,7 +1245,44 @@ public final class SwiftCommandState {
             importRestrictions: .none,
             pruneDependencies: self.options.resolver.pruneDependencies
         )
+    }
+
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    private func createConstExprManifestLoader() throws -> ConstExprManifestLoader {
+        ConstExprManifestLoader(
+            toolchain: try self.getHostToolchain(),
+            pruneDependencies: self.options.resolver.pruneDependencies,
+            extraManifestFlags: self.options.build.manifestFlags
+        )
+    }
+
+    private lazy var _manifestLoader: Result<any ManifestLoaderProtocol, Swift.Error> = Result(catching: {
+        switch self.options.manifest.mode {
+        case .onlyExecuted:
+            return try self.createExecutingManifestLoader()
+        case .onlyConstExpr:
+            return try self.createConstExprManifestLoader()
+        case .constExprWithFallback:
+            return ConstExprFallbackManifestLoader(
+                constExprLoader: try self.createConstExprManifestLoader(),
+                executingLoader: try self.createExecutingManifestLoader(),
+                mode: .fallback,
+                reportFallbacks: self.options.manifest.showFallbacks
+            )
+        case .crosscheck:
+            return ConstExprFallbackManifestLoader(
+                constExprLoader: try self.createConstExprManifestLoader(),
+                executingLoader: try self.createExecutingManifestLoader(),
+                mode: .crosscheck,
+                reportFallbacks: self.options.manifest.showFallbacks
+            )
+        }
     })
+    #else
+    private lazy var _manifestLoader: Result<ManifestLoader, Swift.Error> = Result(catching: {
+        try self.createExecutingManifestLoader()
+    })
+    #endif
 
     /// An enum indicating the execution status of run commands.
     public enum ExecutionStatus {

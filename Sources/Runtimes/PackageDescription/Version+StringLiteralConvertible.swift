@@ -10,6 +10,16 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+internal import ConstExpr
+#endif
+
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExprMembers(
+    named: "StringLiterals",
+    registrationAccess: ConstExprRegistrationAccess.package
+)
+#endif
 extension Version: ExpressibleByStringLiteral {
     /// Initializes a version struct with the provided string literal.
     ///

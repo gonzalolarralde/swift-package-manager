@@ -10,6 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+internal import ConstExpr
+#endif
+
 /// A package trait.
 ///
 /// A trait is a package feature that expresses conditional compilation and potentially optional dependencies.
@@ -55,6 +59,9 @@
 /// #endif // Trait1
 /// ```
 @available(_PackageDescription, introduced: 6.1)
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct Trait: Hashable, ExpressibleByStringLiteral {
     /// Declares the default traits for this package.
     public static func `default`(enabledTraits: Set<String>) -> Self {

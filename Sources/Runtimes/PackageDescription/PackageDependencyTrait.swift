@@ -10,12 +10,19 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+internal import ConstExpr
+#endif
+
 extension Package.Dependency {
     /// An enabled trait of a dependency.
     @available(_PackageDescription, introduced: 6.1)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public struct Trait: Hashable, Sendable, ExpressibleByStringLiteral {
         /// Enables all default traits of the dependency.
-        public static let defaults = Self.init(name: "default")
+        public static let defaults: Trait = Self.init(name: "default")
 
         /// A condition that limits the application of a trait for a dependency.
         public struct Condition: Hashable, Sendable {
@@ -27,6 +34,9 @@ extension Package.Dependency {
             /// If the depending package enables any of the traits you provide, the package manager enables the dependency to which this condition applies.
             ///
             /// - Parameter traits: The set of traits that enable the dependencies trait.
+            #if SWIFTPM_CONSTEXPR_MANIFESTS
+            @ConstExpr(registrationAccess: .package)
+            #endif
             public static func when(
                 traits: Set<String>
             ) -> Self? {

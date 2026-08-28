@@ -12,6 +12,10 @@
 
 @_implementationOnly import Foundation
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+internal import ConstExpr
+#endif
+
 /// The basic building block of a Swift package.
 ///
 /// Each target contains a set of source files that Swift Package Manager compiles into a module
@@ -20,6 +24,9 @@
 ///
 /// A target may depend on other targets within the same package and on products
 /// vended by the package's dependencies.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public final class Target {
 
     /// The different types of a target.
@@ -42,6 +49,9 @@ public final class Target {
     }
 
     /// The different types of a target's dependency on another entity.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public enum Dependency: Sendable {
         /// A dependency on a target.
         ///
@@ -155,6 +165,9 @@ public final class Target {
     ///
     /// In this version of SwiftPM, only build tool and command plug-ins are supported;
     /// this enumeration will be extended as new plug-in capabilities are added.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public enum PluginCapability {
         /// Specifies that the plug-in provides a build tool capability.
         ///
@@ -220,6 +233,9 @@ public final class Target {
     
     /// A plug-in used in a target.
     @available(_PackageDescription, introduced: 5.5)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public enum PluginUsage {
         /// Specifies the use of a plug-in product in a package dependency.
         ///
@@ -231,6 +247,9 @@ public final class Target {
 
     /// Construct a target.
     @_spi(PackageDescriptionInternal)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExprIgnored
+    #endif
     public init(
         name: String,
         dependencies: [Dependency],
@@ -1236,6 +1255,14 @@ public final class Target {
     }
 }
 
+
+
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExprMembers(
+    named: "Factories",
+    registrationAccess: ConstExprRegistrationAccess.package
+)
+#endif
 extension Target.Dependency {
     @available(_PackageDescription, obsoleted: 5.7, message: "use .product(name:package:condition) instead.")
     public static func productItem(name: String, package: String? = nil, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
@@ -1356,6 +1383,9 @@ extension Target.Dependency {
 }
 
 /// A condition that limits the application of a target's dependency.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct TargetDependencyCondition: Sendable {
     let platforms: [Platform]?
     let traits: Set<String>?
@@ -1364,6 +1394,15 @@ public struct TargetDependencyCondition: Sendable {
         self.platforms = platforms
         self.traits = traits
     }
+
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @_spi(ConstExprManifest)
+    public static func _constExprLegacyWhen(
+        platforms: [Platform]
+    ) -> TargetDependencyCondition {
+        TargetDependencyCondition(platforms: platforms, traits: nil)
+    }
+    #endif
 
     /// Creates a target dependency condition.
     ///
@@ -1411,6 +1450,12 @@ public struct TargetDependencyCondition: Sendable {
     }
 }
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExprMembers(
+    named: "Factories",
+    registrationAccess: ConstExprRegistrationAccess.package
+)
+#endif
 extension Target.PluginCapability {
     
     /// The plug-in is a build tool.
@@ -1427,6 +1472,9 @@ extension Target.PluginCapability {
 
 /// The intended use case of the command plug-in.
 @available(_PackageDescription, introduced: 5.6)
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public enum PluginCommandIntent {
     /// The plug-in generates documentation.
     ///
@@ -1478,6 +1526,9 @@ public extension PluginCommandIntent {
 ///
 /// Supported types are ``allowNetworkConnections(scope:reason:)`` and ``writeToPackageDirectory(reason:)``.
 @available(_PackageDescription, introduced: 5.6)
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public enum PluginPermission {
     /// Create a permission to make network connections.
     ///
@@ -1501,6 +1552,9 @@ public enum PluginPermission {
 ///
 /// The scope can be none, local connections only, or all connections.
 @available(_PackageDescription, introduced: 5.9)
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public enum PluginNetworkPermissionScope {
     /// Do not allow network access.
     case none
@@ -1524,6 +1578,12 @@ public enum PluginNetworkPermissionScope {
     }
 }
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExprMembers(
+    named: "Factories",
+    registrationAccess: ConstExprRegistrationAccess.package
+)
+#endif
 extension Target.PluginUsage {
     /// Specifies use of a plugin target in the same package.
     ///
@@ -1540,6 +1600,12 @@ extension Target.PluginUsage {
 
 /// `ExpressibleByStringLiteral` conformance.
 ///
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExprMembers(
+    named: "StringLiterals",
+    registrationAccess: ConstExprRegistrationAccess.package
+)
+#endif
 extension Target.Dependency: ExpressibleByStringLiteral {
 
     /// Creates a target dependency instance with the given value.
@@ -1552,6 +1618,12 @@ extension Target.Dependency: ExpressibleByStringLiteral {
 
 /// `ExpressibleByStringLiteral` conformance.
 ///
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExprMembers(
+    named: "StringLiterals",
+    registrationAccess: ConstExprRegistrationAccess.package
+)
+#endif
 extension Target.PluginUsage: ExpressibleByStringLiteral {
 
     /// Specifies use of a plugin target in the same package.
@@ -1561,4 +1633,3 @@ extension Target.PluginUsage: ExpressibleByStringLiteral {
         self = .plugin(name: value, package: nil)
     }
 }
-

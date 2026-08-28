@@ -10,6 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+internal import ConstExpr
+#endif
+
 /// A resource to bundle with the Swift package.
 ///
 /// If a Swift package declares a Swift tools version of 5.3 or later, it can
@@ -32,9 +36,15 @@
 ///
 /// To learn more about package resources, see [Bundling resources as a Swift Package](https://developer.apple.com/documentation/xcode/bundling-resources-with-a-swift-package).
 @available(_PackageDescription, introduced: 5.3)
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct Resource: Sendable {
 
     /// Defines the explicit type of localization for resources.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public enum Localization: String, Sendable {
 
         /// A constant that represents default localization.

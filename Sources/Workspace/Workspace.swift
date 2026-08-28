@@ -480,7 +480,9 @@ public class Workspace {
             pruneDependencies: configuration?.pruneDependencies ?? false
         )
         // set delegate if not set
-        if let manifestLoader = manifestLoader as? ManifestLoader, manifestLoader.delegate == nil {
+        if let manifestLoader = manifestLoader as? any ManifestLoaderDelegateConfigurable,
+            manifestLoader.delegate == nil
+        {
             manifestLoader.delegate = delegate.map(WorkspaceManifestLoaderDelegate.init(workspaceDelegate:))
         }
 

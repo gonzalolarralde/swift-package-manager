@@ -10,7 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+internal import ConstExpr
+#endif
+
 /// A platform supported by Swift Package Manager.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct Platform: Equatable, Sendable {
 
     /// The name of the platform.
@@ -92,6 +99,9 @@ public struct Platform: Equatable, Sendable {
 /// package's deployment version. The deployment target of a package's
 /// dependencies must be lower than or equal to the top-level package's
 /// deployment target version for a particular platform.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct SupportedPlatform: Equatable, Sendable {
 
     /// The platform.
@@ -299,6 +309,9 @@ public struct SupportedPlatform: Equatable, Sendable {
 extension SupportedPlatform {
 
     /// The supported macOS version.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public struct MacOSVersion: AppleOSVersion {
         fileprivate static let name = "macOS"
         fileprivate static let minimumMajorVersion = 10
@@ -405,6 +418,9 @@ extension SupportedPlatform {
     }
 
     /// The supported tvOS version.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public struct TVOSVersion: AppleOSVersion {
         fileprivate static let name = "tvOS"
         fileprivate static let minimumMajorVersion = 9
@@ -498,6 +514,9 @@ extension SupportedPlatform {
     }
 
     /// The supported Mac Catalyst version.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public struct MacCatalystVersion: AppleOSVersion {
         fileprivate static let name = "macCatalyst"
         fileprivate static let minimumMajorVersion = 13
@@ -567,6 +586,9 @@ extension SupportedPlatform {
     }
 
     /// The supported iOS version.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public struct IOSVersion: AppleOSVersion {
         fileprivate static let name = "iOS"
         fileprivate static let minimumMajorVersion = 2
@@ -666,6 +688,9 @@ extension SupportedPlatform {
     }
 
     /// The supported watchOS version.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public struct WatchOSVersion: AppleOSVersion {
         fileprivate static let name = "watchOS"
         fileprivate static let minimumMajorVersion = 2
@@ -759,6 +784,9 @@ extension SupportedPlatform {
     }
 
     /// The supported visionOS version.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public struct VisionOSVersion: AppleOSVersion {
         fileprivate static let name = "visionOS"
         fileprivate static let minimumMajorVersion = 1
@@ -804,6 +832,9 @@ extension SupportedPlatform {
     }
 
     /// The supported DriverKit version.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public struct DriverKitVersion: AppleOSVersion {
         fileprivate static let name = "DriverKit"
         fileprivate static let minimumMajorVersion = 19

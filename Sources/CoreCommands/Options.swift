@@ -72,6 +72,11 @@ public struct GlobalOptions: ParsableArguments {
 
     @OptionGroup(title: "Trait Options")
     public var traits: TraitOptions
+
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @OptionGroup(title: "Manifest Options")
+    package var manifest: ManifestProcessingOptions
+    #endif
 }
 
 public struct LocationOptions: ParsableArguments {
@@ -890,6 +895,31 @@ public struct SBOMOptions: ParsableArguments {
         return false
     }
 }
+
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+package struct ManifestProcessingOptions: ParsableArguments {
+    package init() {}
+
+    @Option(
+        name: .customLong("experimental-manifest-processing-mode"),
+        help: "Select the experimental manifest loading implementation"
+    )
+    package var mode: Mode = .onlyExecuted
+
+    @Flag(
+        name: .customLong("experimental-show-constexpr-manifest-fallbacks"),
+        help: .hidden
+    )
+    package var showFallbacks = false
+
+    package enum Mode: String, ExpressibleByArgument, CaseIterable, Equatable {
+        case onlyExecuted = "only-executed"
+        case onlyConstExpr = "only-constexpr"
+        case constExprWithFallback = "constexpr-with-fallback"
+        case crosscheck = "crosscheck"
+    }
+}
+#endif
 
 // MARK: - Extensions
 

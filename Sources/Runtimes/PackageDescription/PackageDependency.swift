@@ -16,6 +16,10 @@
 import Foundation
 #endif
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+internal import ConstExpr
+#endif
+
 extension Package {
     /// A package dependency of a Swift package.
     ///
@@ -29,6 +33,9 @@ extension Package {
     /// package. If you add the Swift package as a package dependency to an app
     /// for an Apple platform, you can find the `Package.resolved` file inside
     /// your `.xcodeproj` or `.xcworkspace`.
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public class Dependency {
         /// The type of dependency.
         @available(_PackageDescription, introduced: 5.6)
@@ -200,6 +207,12 @@ extension Package {
 
 // MARK: - file system
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExprMembers(
+    named: "FileSystem",
+    registrationAccess: ConstExprRegistrationAccess.package
+)
+#endif
 extension Package.Dependency {
     /// Adds a local dependency to a package located at the path you provide.
     ///
@@ -285,6 +298,12 @@ extension Package.Dependency {
 
 // MARK: - source control
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExprMembers(
+    named: "SourceControl",
+    registrationAccess: ConstExprRegistrationAccess.package
+)
+#endif
 extension Package.Dependency {
     /// Adds a remote package dependency with a version requirement, starting with the given minimum version,
     /// going up to the next major version.
@@ -859,6 +878,12 @@ extension Package.Dependency {
 
 // MARK: - registry
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExprMembers(
+    named: "Registry",
+    registrationAccess: ConstExprRegistrationAccess.package
+)
+#endif
 extension Package.Dependency {
     /// Adds a remote package dependency that uses the version requirement, starting with the given minimum version,
     /// going up to the next major version.

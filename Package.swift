@@ -346,11 +346,31 @@ let package = Package(
             name: "PackageLoading",
             dependencies: [
                 "Basics",
+                "PackageDescriptionConstExpr",
                 "PackageModel",
                 "SourceControl",
-            ],
+            ] + swiftSyntaxDependencies([
+                "SwiftDiagnostics",
+                "SwiftIfConfig",
+                "SwiftParser",
+                "SwiftSyntax",
+            ]),
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: commonExperimentalFeatures
+        ),
+
+        .target(
+            /** Experimental host-side evaluation of PackageDescription values. */
+            name: "PackageDescriptionConstExpr",
+            dependencies: [
+                "CompilerPluginSupport",
+                "PackageDescription",
+                .product(name: "ConstExpr", package: "swift-constexpr"),
+            ] + swiftSyntaxDependencies(["SwiftSyntax"]),
+            swiftSettings: commonExperimentalFeatures + [
+                .enableExperimentalFeature("AccessLevelOnImport"),
+                .unsafeFlags(["-package-description-version", "999.0"]),
+            ]
         ),
 
         // MARK: Package Dependency Resolution
@@ -561,7 +581,9 @@ let package = Package(
                 "SBOMModel",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonExperimentalFeatures + [
+                .define("SWIFTPM_CONSTEXPR_MANIFESTS"),
+            ]
         ),
 
         .target(
@@ -751,10 +773,15 @@ let package = Package(
         // library; the bootstrap scripts build the deployable version.
         .target(
             name: "PackageDescription",
+            dependencies: [
+                .product(name: "ConstExpr", package: "swift-constexpr"),
+            ],
             path: "Sources/Runtimes/PackageDescription",
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
                 .define("USE_IMPL_ONLY_IMPORTS"),
+                .define("SWIFTPM_CONSTEXPR_MANIFESTS"),
+                .enableExperimentalFeature("AccessLevelOnImport"),
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
             ],
@@ -779,10 +806,15 @@ let package = Package(
 
         .target(
             name: "CompilerPluginSupport",
-            dependencies: ["PackageDescription"],
+            dependencies: [
+                "PackageDescription",
+                .product(name: "ConstExpr", package: "swift-constexpr"),
+            ],
             path: "Sources/Runtimes/CompilerPluginSupport",
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
+                .define("SWIFTPM_CONSTEXPR_MANIFESTS"),
+                .enableExperimentalFeature("AccessLevelOnImport"),
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
             ]
@@ -1110,6 +1142,12 @@ func swiftSyntaxDependencies(_ names: [String]) -> [Target.Dependency] {
 
 /// When not using local dependencies, the branch to use for llbuild and TSC repositories.
 let relatedDependenciesBranch = "main"
+
+// Prototype-only external dependency. CMake/bootstrap builds leave the
+// SWIFTPM_CONSTEXPR_MANIFESTS condition unset and do not consume this graph.
+package.dependencies += [
+    .package(url: "https://github.com/gonzalolarralde/swift-constexpr.git", branch: "main"),
+]
 
 if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {

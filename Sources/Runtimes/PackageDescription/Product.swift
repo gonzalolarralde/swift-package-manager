@@ -10,6 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+internal import ConstExpr
+#endif
+
 /// The object that defines a package product.
 ///
 /// A package product defines an externally visible build artifact that's
@@ -59,6 +63,9 @@
 ///     ]
 /// )
 /// ```
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public class Product {
     /// The name of the package product.
     public let name: String
@@ -86,6 +93,9 @@ public class Product {
     /// The library product of a Swift package.
     public final class Library: Product, @unchecked Sendable {
         /// The different types of a library product.
+        #if SWIFTPM_CONSTEXPR_MANIFESTS
+        @ConstExpr(registrationAccess: .package)
+        #endif
         public enum LibraryType: String {
             /// A statically linked library.
             case `static`
@@ -161,6 +171,9 @@ public class Product {
     }
 
     @_spi(PackageProductSettings)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExprIgnored
+    #endif
     public static func executable(
         name: String,
         targets: [String],

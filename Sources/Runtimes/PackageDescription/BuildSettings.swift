@@ -12,7 +12,14 @@
 
 import _Concurrency
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+internal import ConstExpr
+#endif
+
 /// The build configuration, such as debug or release.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct BuildConfiguration: Sendable {
     /// The configuration of the build. Valid values are `debug` and `release`.
     let config: String
@@ -56,6 +63,9 @@ public struct BuildConfiguration: Sendable {
 ///     ]
 /// ),
 /// ```
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct BuildSettingCondition: Sendable {
     /// The applicable platforms for this build setting condition.
     let platforms: [Platform]?
@@ -86,6 +96,9 @@ public struct BuildSettingCondition: Sendable {
     ///   - configuration: The applicable build configuration for this build setting condition.
     ///   - traits: The applicable traits for this build setting condition.
     @available(_PackageDescription, introduced: 6.1)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExprIgnored
+    #endif
     public static func when(
         platforms: [Platform]? = nil,
         configuration: BuildConfiguration? = nil,
@@ -136,6 +149,9 @@ struct BuildSettingData {
 }
 
 /// A C language build setting.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct CSetting: Sendable {
     /// The abstract build setting data.
     let data: BuildSettingData
@@ -292,6 +308,9 @@ public struct CSetting: Sendable {
 }
 
 /// A CXX-language build setting.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct CXXSetting: Sendable {
     /// The data store for the CXX build setting.
     let data: BuildSettingData
@@ -448,6 +467,9 @@ public struct CXXSetting: Sendable {
 }
 
 /// A Swift language build setting.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct SwiftSetting: Sendable {
     /// The data store for the Swift build setting.
     let data: BuildSettingData
@@ -576,6 +598,9 @@ public struct SwiftSetting: Sendable {
     }
 
     /// The interoperability mode
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public enum InteroperabilityMode: String {
         /// Emit code compatible with being imported from C and Objective-C.
         case C
@@ -717,6 +742,9 @@ public struct SwiftSetting: Sendable {
 }
 
 /// A linker build setting.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct LinkerSetting: Sendable {
     /// The data store for the Linker setting.
     let data: BuildSettingData

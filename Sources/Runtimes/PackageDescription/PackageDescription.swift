@@ -16,6 +16,10 @@
 #endif
 @_implementationOnly import Foundation
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+internal import ConstExpr
+#endif
+
 /// The configuration of a Swift package.
 ///
 /// Pass configuration options as parameters to your package's initializer
@@ -305,6 +309,9 @@ public final class Package {
     ///   - cLanguageStandard: The C language standard to use for all C targets in this package.
     ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
     @available(_PackageDescription, introduced: 6)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public init(
         name: String,
         defaultLocalization: LanguageTag? = nil,
@@ -351,6 +358,9 @@ public final class Package {
     ///   - cLanguageStandard: The C language standard to use for all C targets in this package.
     ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
     @available(_PackageDescription, introduced: 6.1)
+    #if SWIFTPM_CONSTEXPR_MANIFESTS
+    @ConstExpr(registrationAccess: .package)
+    #endif
     public init(
         name: String,
         defaultLocalization: LanguageTag? = nil,
@@ -381,6 +391,13 @@ public final class Package {
     }
 
     private func registerExitHandler() {
+        #if SWIFTPM_CONSTEXPR_MANIFESTS
+        if let session = ConstExprManifestSessionScope.current {
+            session.recordPackageInitializer()
+            return
+        }
+        #endif
+
         // Add a custom exit handler to cause the package's JSON representation
         // to be dumped at exit, if requested.  Emitting it to a separate file
         // descriptor from stdout keeps any of the manifest's stdout output from
@@ -416,6 +433,9 @@ public final class Package {
 ///
 /// To learn more about the IETF worldwide standard for language tags, see
 /// [RFC5646](https://tools.ietf.org/html/rfc5646).
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public struct LanguageTag: Hashable {
 
     /// An IETF BCP 47 standard language tag.
@@ -444,6 +464,12 @@ extension LanguageTag: RawRepresentable {
 }
 
 /// ExpressibleByStringLiteral implementation.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExprMembers(
+    named: "StringLiterals",
+    registrationAccess: ConstExprRegistrationAccess.package
+)
+#endif
 extension LanguageTag: ExpressibleByStringLiteral {
     
     /// Creates an instance initialized to the given value.
@@ -474,6 +500,9 @@ extension LanguageTag: CustomStringConvertible {
 }
 
 /// The system package providers that this package uses.
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExpr(registrationAccess: .package)
+#endif
 public enum SystemPackageProvider {
 
     /// Packages installable by the HomeBrew package manager.
@@ -532,6 +561,12 @@ public enum SystemPackageProvider {
 }
 
 // MARK: - Package Dumping
+
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+func constExprManifestToJSON(_ package: Package) -> String {
+    manifestToJSON(package)
+}
+#endif
 
 private func manifestToJSON(_ package: Package) -> String {
     struct Output: Codable {

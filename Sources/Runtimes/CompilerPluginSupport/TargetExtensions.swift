@@ -12,6 +12,13 @@
 
 @_spi(PackageDescriptionInternal) import PackageDescription
 
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+internal import ConstExpr
+#endif
+
+#if SWIFTPM_CONSTEXPR_MANIFESTS
+@ConstExprMembers(registrationAccess: .package)
+#endif
 public extension Target {
     @available(_PackageDescription, introduced: 5.9)
     static func macro(
