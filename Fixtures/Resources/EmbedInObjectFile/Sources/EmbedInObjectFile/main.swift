@@ -1,3 +1,3 @@
 import EmbeddedResourceLibrary
 
-print(try embeddedResourceText())
+print(embeddedResourceText())

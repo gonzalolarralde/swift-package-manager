@@ -338,21 +338,13 @@ struct ResourcesTests{
         }
     }
 
-    @Test(
-        .serialized,
-        .tags(
-            .Feature.Command.Build,
-        ),
-        arguments: [BuildSystemProvider.Kind.swiftbuild],
-    )
-    func objectFileResourcesRequireLifetimes(
-        buildSystem: BuildSystemProvider.Kind,
-    ) async throws {
+    @Test(.tags(.Feature.Command.Build))
+    func objectFileResourcesRequireLifetimes() async throws {
         try await fixture(name: "Resources/EmbedInObjectFileWithoutLifetimes") { fixturePath in
             let error = try await #require(throws: SwiftPMError.self) {
                 try await executeSwiftBuild(
                     fixturePath,
-                    buildSystem: buildSystem,
+                    buildSystem: .swiftbuild,
                 )
             }
 

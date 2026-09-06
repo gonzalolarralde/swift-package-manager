@@ -1,1 +1,1 @@
-print(PackageResources.payload_txt.count)
+print(PackageResources.payload_txt.byteCount)
