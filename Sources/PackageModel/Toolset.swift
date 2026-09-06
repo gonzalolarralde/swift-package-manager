@@ -26,7 +26,6 @@ public struct Toolset: Equatable {
         case cxxCompiler
         case linker
         case librarian
-        case objcopy
         case debugger
         case testRunner
         case xcbuild

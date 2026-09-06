@@ -300,12 +300,12 @@ struct ResourcesTests{
         .tags(
             .Feature.Command.Build,
         ),
-        arguments: [BuildSystemProvider.Kind.swiftbuild],
+        arguments: [BuildConfiguration.debug, .release],
     )
     func resourcesEmbeddedInObjectFile(
-        buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration,
     ) async throws {
-        let configuration = BuildConfiguration.debug
+        let buildSystem = BuildSystemProvider.Kind.swiftbuild
         try await fixture(name: "Resources/EmbedInObjectFile") { fixturePath in
             try await executeSwiftBuild(
                 fixturePath,
@@ -322,15 +322,19 @@ struct ResourcesTests{
 
             let resourcePath = fixturePath.appending(
                 components: "Sources", "EmbeddedResourceLibrary", "best.txt")
-            let updatedContent = "updated object-file resource with a different size"
-            try localFileSystem.writeFileContents(resourcePath, string: updatedContent)
-            try await executeSwiftBuild(
-                fixturePath,
-                configuration: configuration,
-                buildSystem: buildSystem,
-            )
-            let updatedResult = try await AsyncProcess.checkNonZeroExit(args: execPath.pathString)
-            #expect(updatedResult.contains(updatedContent))
+            let originalContent = try localFileSystem.readFileContents(resourcePath).cString
+            // A same-size change leaves the accessor unchanged, but must still
+            // recompile the C source that embeds the resource.
+            for updatedContent in [originalContent.uppercased(), "updated object-file resource with a different size"] {
+                try localFileSystem.writeFileContents(resourcePath, string: updatedContent)
+                try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                let updatedResult = try await AsyncProcess.checkNonZeroExit(args: execPath.pathString)
+                #expect(updatedResult.contains(updatedContent))
+            }
         }
     }
 
