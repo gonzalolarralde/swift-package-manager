@@ -1247,7 +1247,9 @@ extension PackagePIFProjectBuilder {
 
         let allBuildSettings = customTarget.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope, forRemotePackage: pifBuilder.delegate.isRemote)
 
-        let buildSettings = self.package.underlying.packageBaseBuildSettings
+        var buildSettings = self.package.underlying.packageBaseBuildSettings
+        // The producer owns finalization of custom products, which may not use the host binary format.
+        buildSettings[.COPY_PHASE_STRIP] = "NO"
         var debugSettings = buildSettings
         var releaseSettings = buildSettings
         var impartedSettings = BuildSettings()
@@ -1260,7 +1262,7 @@ extension PackagePIFProjectBuilder {
             BuildConfig(id: id, name: "Debug", settings: debugSettings, impartedBuildSettings: impartedSettings)
         }
         self.project[keyPath: customTargetKeyPath].common.addBuildConfig { id in
-            BuildConfig(id: id, name: "Release", settings: debugSettings, impartedBuildSettings: impartedSettings)
+            BuildConfig(id: id, name: "Release", settings: releaseSettings, impartedBuildSettings: impartedSettings)
         }
 
         for dependency in customTarget.dependencies {

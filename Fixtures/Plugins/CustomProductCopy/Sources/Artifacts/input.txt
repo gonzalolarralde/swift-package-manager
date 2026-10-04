@@ -1,0 +1,1 @@
+The Producer plugin publishes a static archive.

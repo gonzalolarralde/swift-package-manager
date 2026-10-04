@@ -32,6 +32,27 @@ import Foundation
     )
 )
 struct PluginTests {
+    @Test(.requireHostOS(.macOS), arguments: [BuildConfiguration.debug, .release])
+    func customProductCopyPreservesArchive(configuration: BuildConfiguration) async throws {
+        try await fixture(name: "Plugins/CustomProductCopy") { fixturePath in
+            try await executeSwiftBuild(
+                fixturePath,
+                configuration: configuration,
+                extraArgs: ["--target", "Artifacts"],
+                buildSystem: .swiftbuild
+            )
+            let binPath = try await getBinPath(fixturePath, configuration: configuration, buildSystem: .swiftbuild)
+            let archive = fixturePath.appending(components: [
+                ".build", "plugins", "outputs", "customproductcopy", "Artifacts", "destination", "Producer",
+                configuration == .debug ? "Debug" : "Release", "libArtifacts.a",
+            ])
+            let produced = try localFileSystem.readFileContents(archive)
+            let published = try localFileSystem.readFileContents(binPath.appending("libArtifacts.a"))
+            #expect(!produced.contents.isEmpty)
+            #expect(produced == published)
+        }
+    }
+
     @Test(
         .requiresSwiftConcurrencySupport,
         .tags(

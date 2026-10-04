@@ -18,7 +18,7 @@ import PackageLoading
 import PackageModel
 import SPMBuildCore
 import SwiftBuild
-import SwiftBuildSupport
+@testable import SwiftBuildSupport
 import _InternalTestSupport
 import Workspace
 
@@ -2062,6 +2062,84 @@ struct PIFBuilderTests {
             #expect(depIDs.contains { $0.hasPrefix("PACKAGE-TARGET:MacroImpl-") && $0.hasSuffix("-testable") })
             #expect(depIDs.contains("PACKAGE-TARGET:MacroImplHelpers"))
         }
+    }
+
+    @Test func customTargetPreservesPublishedProducts() throws {
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/Artifacts/input.txt",
+            "/Root/Plugins/Producer/plugin.swift",
+        ])
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v6_2,
+                    targets: [
+                        TargetDescription(
+                            name: "Artifacts",
+                            settings: [
+                                .init(tool: .swift, kind: .swiftLanguageMode(.v5), condition: .init(config: "debug")),
+                                .init(tool: .swift, kind: .swiftLanguageMode(.v6), condition: .init(config: "release")),
+                            ],
+                            pluginUsages: [.plugin(name: "Producer", package: nil)]
+                        ),
+                        TargetDescription(name: "Producer", type: .plugin, pluginCapability: .buildTool),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        let package = try #require(graph.rootPackages.first)
+        let delegate = PromotingBuildDelegate(package: package, promotedProductType: nil)
+        let archive: AbsolutePath = "/Root/plugin-output/libArtifacts.a"
+        let builder = PackagePIFBuilder(
+            modulesGraph: graph,
+            resolvedPackage: package,
+            packageManifest: package.manifest,
+            delegate: delegate,
+            buildToolPluginResultsByTargetName: [
+                "Artifacts": [.init(prebuildCommandOutputPaths: [], buildCommands: [.init(
+                    displayName: "Produce archive",
+                    executable: "/usr/bin/producer",
+                    arguments: [],
+                    environment: [:],
+                    workingDir: nil,
+                    inputPaths: [],
+                    outputPaths: [],
+                    buildProducts: [.init(outputFile: archive, productSubdir: nil, platformFilters: [])],
+                    alwaysOutOfDate: false,
+                    platformFilters: [],
+                    pluginOutputDir: archive.parentDirectory,
+                    sandboxProfile: nil
+                )])],
+            ],
+            shouldPreserveSymlinks: false,
+            packageDisplayVersion: package.manifest.displayName,
+            pkgConfigDirectories: [],
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        _ = try withExtendedLifetime(delegate) { try builder.build() }
+        let target = try #require(builder.pifProject.targets.first { $0.common.name == "Artifacts" })
+        guard case .aggregate = target else {
+            Issue.record("Expected a custom aggregate target")
+            return
+        }
+        for (name, swiftVersion) in [("Debug", "5"), ("Release", "6")] {
+            let config = try #require(target.common.buildConfigs.first { $0.name == name })
+            #expect(config.settings[.COPY_PHASE_STRIP] == "NO")
+            #expect(config.settings[.SWIFT_VERSION] == swiftVersion)
+        }
+        let copy = try #require(target.common.buildPhases.compactMap { phase -> ProjectModel.CopyFilesBuildPhase? in
+            guard case .copyFiles(let copy) = phase else { return nil }
+            return copy
+        }.first)
+        #expect(copy.destinationSubfolder == .builtProductsDir)
+        #expect(copy.common.files.count == 1)
+        #expect(!observability.hasErrorDiagnostics)
     }
 
     @Test func mixedSourceTarget() async throws {
